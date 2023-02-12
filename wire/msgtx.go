@@ -314,10 +314,11 @@ func NewTxOut(value int64, pkScript []byte) *TxOut {
 // Use the AddTxIn and AddTxOut functions to build up the list of transaction
 // inputs and outputs.
 type MsgTx struct {
-	Version  int32
-	TxIn     []*TxIn
-	TxOut    []*TxOut
-	LockTime uint32
+	Version   int32
+	Timestamp uint32
+	TxIn      []*TxIn
+	TxOut     []*TxOut
+	LockTime  uint32
 }
 
 // AddTxIn adds a transaction input to the message.
@@ -362,10 +363,11 @@ func (msg *MsgTx) Copy() *MsgTx {
 	// Create new tx and start by copying primitive values and making space
 	// for the transaction inputs and outputs.
 	newTx := MsgTx{
-		Version:  msg.Version,
-		TxIn:     make([]*TxIn, 0, len(msg.TxIn)),
-		TxOut:    make([]*TxOut, 0, len(msg.TxOut)),
-		LockTime: msg.LockTime,
+		Version:   msg.Version,
+		Timestamp: msg.Timestamp,
+		TxIn:      make([]*TxIn, 0, len(msg.TxIn)),
+		TxOut:     make([]*TxOut, 0, len(msg.TxOut)),
+		LockTime:  msg.LockTime,
 	}
 
 	// Deep copy the old TxIn data.
@@ -441,6 +443,11 @@ func (msg *MsgTx) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error
 		return err
 	}
 	msg.Version = int32(version)
+
+	msg.Timestamp, err = binarySerializer.Uint32(r, littleEndian)
+	if err != nil {
+		return err
+	}
 
 	count, err := ReadVarInt(r, pver)
 	if err != nil {
@@ -713,6 +720,11 @@ func (msg *MsgTx) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error
 		return err
 	}
 
+	err = binarySerializer.PutUint32(w, littleEndian, msg.Timestamp)
+	if err != nil {
+		return err
+	}
+
 	// If the encoding version is set to WitnessEncoding, and the Flags
 	// field for the MsgTx aren't 0x00, then this indicates the transaction
 	// is to be encoded using the new witness inclusionary structure
@@ -813,9 +825,9 @@ func (msg *MsgTx) SerializeNoWitness(w io.Writer) error {
 // baseSize returns the serialized size of the transaction without accounting
 // for any witness data.
 func (msg *MsgTx) baseSize() int {
-	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
+	// Version 4 bytes + Time 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
-	n := 8 + VarIntSerializeSize(uint64(len(msg.TxIn))) +
+	n := 12 + VarIntSerializeSize(uint64(len(msg.TxIn))) +
 		VarIntSerializeSize(uint64(len(msg.TxOut)))
 
 	for _, txIn := range msg.TxIn {
@@ -917,9 +929,10 @@ func (msg *MsgTx) PkScriptLocs() []int {
 // future.
 func NewMsgTx(version int32) *MsgTx {
 	return &MsgTx{
-		Version: version,
-		TxIn:    make([]*TxIn, 0, defaultTxInOutAlloc),
-		TxOut:   make([]*TxOut, 0, defaultTxInOutAlloc),
+		Version:   version,
+		Timestamp: 0,
+		TxIn:      make([]*TxIn, 0, defaultTxInOutAlloc),
+		TxOut:     make([]*TxOut, 0, defaultTxInOutAlloc),
 	}
 }
 
@@ -984,6 +997,8 @@ func readTxIn(r io.Reader, pver uint32, version int32, ti *TxIn) error {
 		return err
 	}
 
+	// todo ppc. repeat the same exact read here? doesn't do anything besides advancing the pointer
+
 	ti.SignatureScript, err = readScript(r, pver, MaxMessagePayload,
 		"transaction input signature script")
 	if err != nil {
@@ -1000,6 +1015,8 @@ func writeTxIn(w io.Writer, pver uint32, version int32, ti *TxIn) error {
 	if err != nil {
 		return err
 	}
+
+	// todo ppc. repeat the same exact write here? doesn't do anything besides advancing the pointer
 
 	err = WriteVarBytes(w, pver, ti.SignatureScript)
 	if err != nil {

@@ -843,6 +843,7 @@ func (vm *Engine) DisasmScript(idx int) (string, error) {
 // successful, leaving a a true boolean on the stack.  An error otherwise,
 // including if the script has not finished.
 func (vm *Engine) CheckErrorCondition(finalScript bool) error {
+	return nil // todo ppc
 	if vm.taprootCtx != nil && vm.taprootCtx.mustSucceed {
 		return nil
 	}

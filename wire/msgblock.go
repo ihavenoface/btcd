@@ -43,6 +43,7 @@ type TxLoc struct {
 type MsgBlock struct {
 	Header       BlockHeader
 	Transactions []*MsgTx
+	BlockSig     []byte // todo ppc unused
 }
 
 // AddTransaction adds a transaction to the message.
@@ -65,6 +66,11 @@ func (msg *MsgBlock) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) er
 	err := readBlockHeader(r, pver, &msg.Header)
 	if err != nil {
 		return err
+	}
+
+	// todo ppc some flag we dont deal with yet
+	if msg.Header.PrevBlock.String() != "0000000000000000000000000000000000000000000000000000000000000000" {
+		_, err = binarySerializer.Uint32(r, littleEndian)
 	}
 
 	txCount, err := ReadVarInt(r, pver)
@@ -90,6 +96,8 @@ func (msg *MsgBlock) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) er
 		}
 		msg.Transactions = append(msg.Transactions, &tx)
 	}
+
+	msg.BlockSig = nil
 
 	return nil
 }
