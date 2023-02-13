@@ -276,6 +276,7 @@ var MainNetParams = Params{
 	Net:         wire.MainNet,
 	DefaultPort: "9901",
 	DNSSeeds: []DNSSeed{
+		// todo ppc check for filtering
 		{"seed.peercoin.net", false},
 		{"seed2.peercoin.net", false},
 		{"seed.peercoin-library.org", false},
@@ -522,17 +523,18 @@ var RegressionNetParams = Params{
 var TestNet3Params = Params{
 	Name:        "testnet3",
 	Net:         wire.TestNet3,
-	DefaultPort: "18333",
+	DefaultPort: "9903",
 	DNSSeeds: []DNSSeed{
-		{"testnet-seed.bitcoin.jonasschnelli.ch", true},
-		{"testnet-seed.bitcoin.schildbach.de", false},
-		{"seed.tbtc.petertodd.org", true},
-		{"testnet-seed.bluematt.me", false},
+		// todo ppc check for filtering
+		{"tseed.peercoin.net", false},
+		{"tseed2.peercoin.net", false},
+		{"tseed.peercoin-library.org", false},
+		{"testseed.ppcoin.info", false},
 	},
 
 	// Chain parameters
-	GenesisBlock:             &testNet3GenesisBlock,
-	GenesisHash:              &testNet3GenesisHash,
+	GenesisBlock:             &testNet3GenesisBlockPPC,
+	GenesisHash:              &testNet3GenesisHashPPC,
 	PowLimit:                 testNet3PowLimit,
 	PowLimitBits:             0x1d00ffff,
 	BIP0034Height:            21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
@@ -548,7 +550,7 @@ var TestNet3Params = Params{
 	GenerateSupported:        false,
 
 	// Checkpoints ordered from oldest to newest.
-	Checkpoints: []Checkpoint{
+	Checkpoints: []Checkpoint{/*
 		{546, newHashFromStr("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
 		{100000, newHashFromStr("00000000009e2958c15ff9290d571bf9459e93b19765c6801ddeccadbb160a1e")},
 		{200000, newHashFromStr("0000000000287bffd321963ef05feab753ebe274e1d78b2fd4e2bfe9ad3aa6f2")},
@@ -563,7 +565,7 @@ var TestNet3Params = Params{
 		{1100007, newHashFromStr("00000000000abc7b2cd18768ab3dee20857326a818d1946ed6796f42d66dd1e8")},
 		{1200007, newHashFromStr("00000000000004f2dc41845771909db57e04191714ed8c963f7e56713a7b6cea")},
 		{1300007, newHashFromStr("0000000072eab69d54df75107c052b26b0395b44f77578184293bf1bb1dbd9fa")},
-	},
+	*/},
 
 	// Consensus rule change deployments.
 	//

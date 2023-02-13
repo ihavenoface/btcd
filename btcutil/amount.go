@@ -23,8 +23,8 @@ const (
 	AmountKiloBTC  AmountUnit = 3
 	AmountBTC      AmountUnit = 0
 	AmountMilliBTC AmountUnit = -3
-	AmountMicroBTC AmountUnit = -6
-	AmountSatoshi  AmountUnit = -8
+	// AmountMicroBTC AmountUnit = -6 todo ppc
+	AmountSatoshi  AmountUnit = -6
 )
 
 // String returns the unit as a string.  For recognized units, the SI
@@ -40,8 +40,8 @@ func (u AmountUnit) String() string {
 		return "BTC"
 	case AmountMilliBTC:
 		return "mBTC"
-	case AmountMicroBTC:
-		return "μBTC"
+	// case AmountMicroBTC: todo ppc
+	//	return "μBTC"
 	case AmountSatoshi:
 		return "Satoshi"
 	default:
