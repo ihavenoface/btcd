@@ -74,10 +74,10 @@ const (
 	// that any realistically usable transaction must have at least one
 	// input or output, but that is a rule enforced at a higher layer, so
 	// it is intentionally not included here.
-	// Version 4 bytes + Varint number of transaction inputs 1 byte + Varint
+	// Version 4 bytes + Time 4 bytes + Varint number of transaction inputs 1 byte + Varint
 	// number of transaction outputs 1 byte + LockTime 4 bytes + min input
 	// payload + min output payload.
-	minTxPayload = 10
+	minTxPayload = 14
 
 	// freeListMaxScriptSize is the size of each buffer in the free list
 	// that	is used for deserializing scripts from the wire before they are
@@ -444,9 +444,13 @@ func (msg *MsgTx) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error
 	}
 	msg.Version = int32(version)
 
-	msg.Timestamp, err = binarySerializer.Uint32(r, littleEndian)
-	if err != nil {
-		return err
+	if version < 3 {
+		msg.Timestamp, err = binarySerializer.Uint32(r, littleEndian)
+		if err != nil {
+			return err
+		}
+	} else {
+		msg.Timestamp = 0
 	}
 
 	count, err := ReadVarInt(r, pver)
@@ -467,6 +471,7 @@ func (msg *MsgTx) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error
 		// At the moment, the flag MUST be WitnessFlag (0x01). In the future
 		// other flag types may be supported.
 		if flag[0] != WitnessFlag {
+			// todo ppc
 			str := fmt.Sprintf("witness tx but flag byte is %x", flag)
 			return messageError("MsgTx.BtcDecode", str)
 		}
@@ -720,9 +725,11 @@ func (msg *MsgTx) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error
 		return err
 	}
 
-	err = binarySerializer.PutUint32(w, littleEndian, msg.Timestamp)
-	if err != nil {
-		return err
+	if msg.Version < 3 {
+		err = binarySerializer.PutUint32(w, littleEndian, msg.Timestamp)
+		if err != nil {
+			return err
+		}
 	}
 
 	// If the encoding version is set to WitnessEncoding, and the Flags
@@ -891,10 +898,10 @@ func (msg *MsgTx) PkScriptLocs() []int {
 	// The starting offset in the serialized transaction of the first
 	// transaction output is:
 	//
-	// Version 4 bytes + serialized varint size for the number of
+	// Version 4 bytes + Time 4 bytes + serialized varint size for the number of
 	// transaction inputs and outputs + serialized size of each transaction
 	// input.
-	n := 4 + VarIntSerializeSize(uint64(len(msg.TxIn))) +
+	n := 8 + VarIntSerializeSize(uint64(len(msg.TxIn))) +
 		VarIntSerializeSize(uint64(numTxOut))
 
 	// If this transaction has a witness input, the an additional two bytes
