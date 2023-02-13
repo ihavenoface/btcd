@@ -80,15 +80,7 @@ var genesisCoinbaseTxPPC = wire.MsgTx{
 			Sequence: 0xffffffff,
 		},
 	},
-	// looks like there is no output for ppc
-	TxOut: []*wire.TxOut{
-		{
-			Value: 0,
-			PkScript: []byte{
-				0,
-			},
-		},
-	},
+	TxOut:    []*wire.TxOut{{}},
 	LockTime: 0,
 }
 
@@ -101,7 +93,7 @@ var genesisHash = chainhash.Hash([chainhash.HashSize]byte{ // Make go vet happy.
 	0x68, 0xd6, 0x19, 0x00, 0x00, 0x00, 0x00, 0x00,
 })
 
-var genesisHashPPC = chainhash.Hash([chainhash.HashSize]byte{ // Make go vet happy.
+var genesisHashPPC = chainhash.Hash([chainhash.HashSize]byte{
 	0xe3, 0x27, 0xcd, 0x80, 0xc8, 0xb1, 0x7e, 0xfd,
 	0xa4, 0xea, 0x08, 0xc5, 0x87, 0x7e, 0x95, 0xd8,
 	0x77, 0x46, 0x2a, 0xb6, 0x63, 0x49, 0xd5, 0x66,
@@ -117,7 +109,7 @@ var genesisMerkleRoot = chainhash.Hash([chainhash.HashSize]byte{ // Make go vet 
 	0x3a, 0x9f, 0xb8, 0xaa, 0x4b, 0x1e, 0x5e, 0x4a,
 })
 
-var genesisMerkleRootPPC = chainhash.Hash([chainhash.HashSize]byte{ // Make go vet happy.
+var genesisMerkleRootPPC = chainhash.Hash([chainhash.HashSize]byte{
 	0xc2, 0x93, 0x59, 0x2c, 0x05, 0x90, 0x56, 0x98,
 	0x29, 0x0c, 0x89, 0xeb, 0x6d, 0xde, 0xf0, 0xcf,
 	0x8a, 0xa5, 0xa1, 0x48, 0xc6, 0x8c, 0x55, 0xac,
@@ -141,11 +133,11 @@ var genesisBlock = wire.MsgBlock{
 var genesisBlockPPC = wire.MsgBlock{
 	Header: wire.BlockHeader{
 		Version:    1,
-		PrevBlock:  chainhash.Hash{},         // 0000000000000000000000000000000000000000000000000000000000000000
-		MerkleRoot: genesisMerkleRootPPC,     // 4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b
-		Timestamp:  time.Unix(0x502c5b7f, 0), // 2009-01-03 18:15:05 +0000 UTC
-		Bits:       0x1d00ffff,               // 486604799 [00000000ffff0000000000000000000000000000000000000000000000000000]
-		Nonce:      0x81e582ab,               // 2083236893
+		PrevBlock:  chainhash.Hash{},
+		MerkleRoot: genesisMerkleRootPPC,
+		Timestamp:  time.Unix(0x502c5b7f, 0),
+		Bits:       0x1d00ffff,
+		Nonce:      0x81e582ab,
 	},
 	Transactions: []*wire.MsgTx{&genesisCoinbaseTxPPC},
 }
