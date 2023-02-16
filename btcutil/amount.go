@@ -19,12 +19,12 @@ type AmountUnit int
 // These constants define various units used when describing a bitcoin
 // monetary amount.
 const (
-	AmountMegaBTC  AmountUnit = 6
-	AmountKiloBTC  AmountUnit = 3
-	AmountBTC      AmountUnit = 0
-	AmountMilliBTC AmountUnit = -3
-	// AmountMicroBTC AmountUnit = -6 todo ppc
-	AmountSatoshi  AmountUnit = -6
+	AmountMegaBTC  AmountUnit = 4
+	AmountKiloBTC  AmountUnit = 1
+	AmountBTC      AmountUnit = -2
+	AmountMilliBTC AmountUnit = -5
+	AmountMicroBTC AmountUnit = -8
+	AmountSatoshi  AmountUnit = -10
 )
 
 // String returns the unit as a string.  For recognized units, the SI
@@ -40,8 +40,8 @@ func (u AmountUnit) String() string {
 		return "BTC"
 	case AmountMilliBTC:
 		return "mBTC"
-	// case AmountMicroBTC: todo ppc
-	//	return "μBTC"
+	case AmountMicroBTC:
+		return "μBTC"
 	case AmountSatoshi:
 		return "Satoshi"
 	default:
@@ -105,7 +105,7 @@ func (a Amount) ToBTC() float64 {
 // the units with SI notation, or "Satoshi" for the base unit.
 func (a Amount) Format(u AmountUnit) string {
 	units := " " + u.String()
-	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u+8), 64) + units
+	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u+6), 64) + units
 }
 
 // String is the equivalent of calling Format with AmountBTC.

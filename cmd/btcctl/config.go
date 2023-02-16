@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcd/btcjson"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 	flags "github.com/jessevdk/go-flags"
 )
 
@@ -121,6 +121,7 @@ func normalizeAddress(addr string, chain *chaincfg.Params, useWallet bool) (stri
 		switch chain {
 		case &chaincfg.TestNet3Params:
 			if useWallet {
+				// todo ppc
 				defaultPort = "18332"
 			} else {
 				defaultPort = "18334"

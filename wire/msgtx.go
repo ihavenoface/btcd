@@ -15,7 +15,7 @@ import (
 
 const (
 	// TxVersion is the current latest supported transaction version.
-	TxVersion = 1
+	TxVersion = 3
 
 	// MaxTxInSequenceNum is the maximum sequence number the sequence field
 	// of a transaction input can be.
@@ -937,7 +937,7 @@ func (msg *MsgTx) PkScriptLocs() []int {
 func NewMsgTx(version int32) *MsgTx {
 	return &MsgTx{
 		Version:   version,
-		Timestamp: 0,
+		Timestamp: 0, // todo ppc should be passed down
 		TxIn:      make([]*TxIn, 0, defaultTxInOutAlloc),
 		TxOut:     make([]*TxOut, 0, defaultTxInOutAlloc),
 	}
