@@ -1105,9 +1105,9 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	// against all the inputs when the signature operations are out of
 	// bounds.
 	// todo ppc
-	// var totalFees int64
+	var totalFees int64
 	for _, tx := range transactions {
-		/* todo ppc
+		// todo ppc
 		txFee, err := CheckTransactionInputs(tx, node.height, view,
 			b.chainParams)
 		if err != nil {
@@ -1122,7 +1122,6 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 			return ruleError(ErrBadFees, "total fees for block "+
 				"overflows accumulator")
 		}
-		*/
 
 		// Add all of the outputs for this transaction which are not
 		// provably unspendable as available utxos.  Also, the passed
