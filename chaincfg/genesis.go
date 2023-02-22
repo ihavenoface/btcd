@@ -57,7 +57,7 @@ var genesisCoinbaseTx = wire.MsgTx{
 
 var genesisCoinbaseTxPPC = wire.MsgTx{
 	Version:   1,
-	Timestamp: 0x502c59a2, // todo ppc change to time.Time?
+	Timestamp: time.Unix(0x502c59a2, 0),
 	TxIn: []*wire.TxIn{
 		{
 			PreviousOutPoint: wire.OutPoint{
@@ -128,6 +128,7 @@ var genesisBlock = wire.MsgBlock{
 		Nonce:      0x7c2bac1d,               // 2083236893
 	},
 	Transactions: []*wire.MsgTx{&genesisCoinbaseTx},
+	Signature:    []byte{},
 }
 
 var genesisBlockPPC = wire.MsgBlock{
@@ -217,6 +218,7 @@ var testNet3GenesisBlockPPC = wire.MsgBlock{
 		Nonce:      0x07533a5a,
 	},
 	Transactions: []*wire.MsgTx{&genesisCoinbaseTxPPC},
+	Signature:    []byte{},
 }
 
 // simNetGenesisHash is the hash of the first block in the block chain for the

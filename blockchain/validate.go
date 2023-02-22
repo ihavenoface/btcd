@@ -203,7 +203,6 @@ func CalcBlockSubsidy(height int32, chainParams *chaincfg.Params) int64 {
 // CheckTransactionSanity performs some preliminary checks on a transaction to
 // ensure it is sane.  These checks are context free.
 func CheckTransactionSanity(tx *btcutil.Tx) error {
-	return nil // todo ppc
 	// A transaction must have at least one input.
 	msgTx := tx.MsgTx()
 	if len(msgTx.TxIn) == 0 {
@@ -514,8 +513,6 @@ func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource Median
 		}
 	}
 
-	return nil // todo ppc
-
 	// Do some preliminary checks on each transaction to ensure they are
 	// sane before continuing.
 	for _, tx := range transactions {
@@ -646,12 +643,12 @@ func checkSerializedHeight(coinbaseTx *btcutil.Tx, wantHeight int32) error {
 //
 // This function MUST be called with the chain state lock held (for writes).
 func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode *blockNode, flags BehaviorFlags) error {
-	return nil // todo ppc
 	fastAdd := flags&BFFastAdd == BFFastAdd
 	if !fastAdd {
 		// Ensure the difficulty specified in the block header matches
 		// the calculated difficulty based on the previous block and
 		// difficulty retarget rules.
+		/* todo ppc
 		expectedDifficulty, err := b.calcNextRequiredDifficulty(prevNode,
 			header.Timestamp)
 		if err != nil {
@@ -663,6 +660,7 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 			str = fmt.Sprintf(str, blockDifficulty, expectedDifficulty)
 			return ruleError(ErrUnexpectedDifficulty, str)
 		}
+		*/
 
 		// Ensure the timestamp for the block header is after the
 		// median time of the last several blocks (medianTimeBlocks).
@@ -704,6 +702,7 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 	// Reject outdated block versions once a majority of the network
 	// has upgraded.  These were originally voted on by BIP0034,
 	// BIP0065, and BIP0066.
+	/* todo ppc
 	params := b.chainParams
 	if header.Version < 2 && blockHeight >= params.BIP0034Height ||
 		header.Version < 3 && blockHeight >= params.BIP0066Height ||
@@ -713,6 +712,7 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 		str = fmt.Sprintf(str, header.Version)
 		return ruleError(ErrBlockVersionTooOld, str)
 	}
+	*/
 
 	return nil
 }
@@ -957,14 +957,12 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	}
 
 	// Ensure the transaction does not spend more than its inputs.
-	/* todo ppc
 	if totalSatoshiIn < totalSatoshiOut {
 		str := fmt.Sprintf("total value of all transaction inputs for "+
 			"transaction %v is %v which is less than the amount "+
 			"spent of %v", tx.Hash(), totalSatoshiIn, totalSatoshiOut)
 		return 0, ruleError(ErrSpendTooHigh, str)
 	}
-	*/
 
 	// NOTE: bitcoind checks if the transaction fees are < 0 here, but that
 	// is an impossible condition because of the check above that ensures
@@ -1105,9 +1103,9 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	// against all the inputs when the signature operations are out of
 	// bounds.
 	// todo ppc
-	var totalFees int64
+	// var totalFees int64
 	for _, tx := range transactions {
-		// todo ppc
+		/* todo ppc
 		txFee, err := CheckTransactionInputs(tx, node.height, view,
 			b.chainParams)
 		if err != nil {
@@ -1122,6 +1120,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 			return ruleError(ErrBadFees, "total fees for block "+
 				"overflows accumulator")
 		}
+		*/
 
 		// Add all of the outputs for this transaction which are not
 		// provably unspendable as available utxos.  Also, the passed

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
@@ -315,7 +316,7 @@ func NewTxOut(value int64, pkScript []byte) *TxOut {
 // inputs and outputs.
 type MsgTx struct {
 	Version   int32
-	Timestamp uint32
+	Timestamp time.Time
 	TxIn      []*TxIn
 	TxOut     []*TxOut
 	LockTime  uint32
@@ -445,12 +446,12 @@ func (msg *MsgTx) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error
 	msg.Version = int32(version)
 
 	if version < 3 {
-		msg.Timestamp, err = binarySerializer.Uint32(r, littleEndian)
+		err = readElement(r, (*uint32Time)(&msg.Timestamp))
 		if err != nil {
 			return err
 		}
 	} else {
-		msg.Timestamp = 0
+		msg.Timestamp = time.Unix(0, 0)
 	}
 
 	count, err := ReadVarInt(r, pver)
@@ -726,7 +727,7 @@ func (msg *MsgTx) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error
 	}
 
 	if msg.Version < 3 {
-		err = binarySerializer.PutUint32(w, littleEndian, msg.Timestamp)
+		err = writeElement(w, uint32(msg.Timestamp.Unix()))
 		if err != nil {
 			return err
 		}
@@ -864,7 +865,8 @@ func (msg *MsgTx) SerializeSize() int {
 		}
 	}
 
-	return n
+	// peercoin Time 4 bytes
+	return n + 4
 }
 
 // SerializeSizeStripped returns the number of bytes it would take to serialize
@@ -937,7 +939,7 @@ func (msg *MsgTx) PkScriptLocs() []int {
 func NewMsgTx(version int32) *MsgTx {
 	return &MsgTx{
 		Version:   version,
-		Timestamp: 0, // todo ppc should be passed down
+		Timestamp: time.Unix(0, 0), // todo ppc should be passed down
 		TxIn:      make([]*TxIn, 0, defaultTxInOutAlloc),
 		TxOut:     make([]*TxOut, 0, defaultTxInOutAlloc),
 	}
