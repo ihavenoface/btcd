@@ -7,8 +7,8 @@ package blockchain
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/database"
 )
 
 // maybeAcceptBlock potentially accepts a block into the block chain and, if
@@ -44,6 +44,33 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 		return false, err
 	}
 
+	// todo ppc
+	// ppc: verify hash target and signature of coinstake tx
+	// TODO(mably) is it the best place to do that?
+	// TODO(mably) a timeSource param is needed to get the AdjustedTime
+	err = b.checkBlockProofOfStake(block, b.timeSource) // todo ppc (i'm just guessing here -> pass in timeSource that actually works)
+	if err != nil {
+		str := fmt.Sprintf("Proof of stake check failed for block %v : %v", block.Hash(), err)
+		return false, ruleError(1, str) // todo select correct error code ErrProofOfStakeCheck
+	}
+
+	// ppc: populate all ppcoin specific block meta data
+	err = b.addToBlockIndex(block)
+	if err != nil {
+		return false, err
+	}
+
+	/* todo ppc
+	// Prune block nodes which are no longer needed before creating
+	// a new node.
+	if !dryRun {
+		err = b.pruneBlockNodes()
+		if err != nil {
+			return err
+		}
+	}
+	*/
+
 	// Insert the block into the database if it's not already there.  Even
 	// though it is possible the block will ultimately fail to connect, it
 	// has already passed all proof-of-work and validity tests which means
@@ -64,8 +91,9 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 	// if the block ultimately gets connected to the main chain, it starts out
 	// on a side chain.
 	blockHeader := &block.MsgBlock().Header
-	newNode := newBlockNode(blockHeader, prevNode)
-	newNode.status = statusDataStored
+	newNode := newBlockNodePPC(blockHeader, prevNode, block.Meta())
+	// newNode := newBlockNode(blockHeader, prevNode)
+	// newNode.status = statusDataStored
 
 	b.index.AddNode(newNode)
 	err = b.index.flushToDB()

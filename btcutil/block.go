@@ -7,7 +7,6 @@ package btcutil
 import (
 	"bytes"
 	"fmt"
-	"github.com/btcsuite/btclog"
 	"io"
 	"time"
 
@@ -351,6 +350,7 @@ func Now() time.Time {
 	return time.Now()
 }
 
+/* todo ppc?
 func TimeTrack(log btclog.Logger, start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.Tracef("%s took %s", name, elapsed)
@@ -359,5 +359,6 @@ func TimeTrack(log btclog.Logger, start time.Time, name string) {
 func Slice(args ...interface{}) []interface{} {
 	return args
 }
+*/
 
 // peercoin end

@@ -268,6 +268,16 @@ type Params struct {
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
 	HDCoinType uint32
+
+	// ppc: peercoin specific parameters
+	StakeMinAge int64
+	// CoinbaseMaturity is the number of blocks required before newly
+	// mined bitcoins (coinbase transactions) can be spent.
+	// CoinbaseMaturity      int64
+	InitialHashTargetBits uint32
+	// Modifier interval: time to elapse before new modifier is computed
+	ModifierInterval         int64
+	StakeModifierCheckpoints map[int64]uint32
 }
 
 // MainNetParams defines the network parameters for the main Bitcoin network.
@@ -291,7 +301,7 @@ var MainNetParams = Params{
 	BIP0034Height:            227931, // 000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8
 	BIP0065Height:            388381, // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
 	BIP0066Height:            363725, // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-	CoinbaseMaturity:         100,
+	// CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
 	TargetTimePerBlock:       time.Minute * 10,    // 10 minutes
@@ -408,6 +418,18 @@ var MainNetParams = Params{
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
 	HDCoinType: 0,
+
+	// Peercoin
+	StakeMinAge:           60 * 60 * 24 * 30, // minimum age for coin age
+	CoinbaseMaturity:      100,
+	InitialHashTargetBits: 0x1c00ffff,
+	ModifierInterval:      6 * 60 * 60, // Set to 6-hour for production network and 20-minute for test network
+	StakeModifierCheckpoints: map[int64]uint32{
+		0:     uint32(0x0e00670b),
+		19080: uint32(0xad4e4d29),
+		30583: uint32(0xdc7bf136),
+		99999: uint32(0xf555cfd2),
+	},
 }
 
 // RegressionNetParams defines the network parameters for the regression test
@@ -540,7 +562,7 @@ var TestNet3Params = Params{
 	BIP0034Height:            21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
 	BIP0065Height:            581885, // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
 	BIP0066Height:            330776, // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
-	CoinbaseMaturity:         100,
+	// CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
 	TargetTimePerBlock:       time.Minute * 10,    // 10 minutes
@@ -645,6 +667,13 @@ var TestNet3Params = Params{
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
 	HDCoinType: 1,
+
+	// Peercoin
+	StakeMinAge:              60 * 60 * 24, // test net min age is 1 day
+	CoinbaseMaturity:         60,
+	InitialHashTargetBits:    0x1d07ffff,
+	ModifierInterval:         60 * 20, // test net modifier interval is 20 minutes
+	StakeModifierCheckpoints: map[int64]uint32{},
 }
 
 // SimNetParams defines the network parameters for the simulation test Bitcoin
