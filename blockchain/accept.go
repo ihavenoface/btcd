@@ -51,7 +51,7 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 	err = b.checkBlockProofOfStake(block, b.timeSource) // todo ppc (i'm just guessing here -> pass in timeSource that actually works)
 	if err != nil {
 		str := fmt.Sprintf("Proof of stake check failed for block %v : %v", block.Hash(), err)
-		return false, ruleError(1, str) // todo select correct error code ErrProofOfStakeCheck
+		return false, ruleError(1, str) // todo ppc select correct error code ErrProofOfStakeCheck
 	}
 
 	// ppc: populate all ppcoin specific block meta data
