@@ -6,14 +6,13 @@ package blockchain
 
 import (
 	"fmt"
+	// "github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/chaincfg"
+	// "github.com/btcsuite/btcd/txscript"
 	"math/big"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -76,28 +75,38 @@ var stakeSeen, stakeSeenOrphan = make(map[Stake]bool), make(map[Stake]bool)
 func (b *BlockChain) getBlockNode(hash *chainhash.Hash) (*blockNode, error) {
 
 	// Return the existing previous block node if it's already there.
-	if bn, ok := b.index[*hash]; ok {
+	/*if bn, ok := b.index.LookupNode(hash); ok {
+		return bn, nil
+	}*/
+
+	bn := b.index.LookupNode(hash)
+	if bn != nil {
 		return bn, nil
 	}
 
 	// Dynamically load the previous block from the block database, create
 	// a new block node for it, and update the memory chain accordingly.
-	prevBlockNode, err := b.loadBlockNode(hash)
+	// todo ppc
+	/*prevBlockNode, err := b.loadBlockNode(hash)
 	if err != nil {
 		return nil, err
 	}
 	return prevBlockNode, nil
+	*/
+	return bn, nil
 }
 
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L894
 // ppc: find last block index up to pindex
 func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (block *blockNode) {
 
-	if last == nil {
-		defer timeTrack(now(), fmt.Sprintf("GetLastBlockIndex"))
-	} else {
-		defer timeTrack(now(), fmt.Sprintf("GetLastBlockIndex(%v)", last.hash))
-	}
+	/*
+		if last == nil {
+			defer timeTrack(now(), fmt.Sprintf("GetLastBlockIndex"))
+		} else {
+			defer timeTrack(now(), fmt.Sprintf("GetLastBlockIndex(%v)", last.hash))
+		}
+	*/
 
 	block = last
 	for true {
@@ -119,6 +128,30 @@ func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (bloc
 	return block
 }
 
+func (b *BlockChain) getPrevNodeFromNode(node *blockNode) (*blockNode, error) {
+	// Return the existing previous block node if it's already there.
+	if node.parent != nil {
+		return node.parent, nil
+	}
+
+	// Genesis block.
+	if node.hash.IsEqual(b.chainParams.GenesisHash) {
+		return nil, nil
+	}
+
+	return node.parent, nil
+	/*
+		// Dynamically load the previous block from the block database, create
+		// a new block node for it, and update the memory chain accordingly.
+		prevBlockNode, err := b.loadBlockNode(node.parentHash)
+		if err != nil {
+			return nil, err
+		}
+
+		return prevBlockNode, nil
+	*/
+}
+
 // calcNextRequiredDifficulty calculates the required difficulty for the block
 // after the passed previous block node based on the difficulty retarget rules.
 // This function differs from the exported CalcNextRequiredDifficulty in that
@@ -131,7 +164,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 		return b.chainParams.PowLimitBits, nil // genesis block
 	}
 
-	defer timeTrack(now(), fmt.Sprintf("ppcCalcNextRequiredDifficulty(%v)", lastNode.hash))
+	// defer timeTrack(now(), fmt.Sprintf("ppcCalcNextRequiredDifficulty(%v)", lastNode.hash))
 
 	prev := b.getLastBlockIndex(lastNode, proofOfStake)
 	if prev.hash.IsEqual(b.chainParams.GenesisHash) {
@@ -143,14 +176,14 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 		return b.chainParams.InitialHashTargetBits, nil // second block
 	}
 
-	actualSpacing := prev.timestamp.Unix() - prevPrev.timestamp.Unix()
+	actualSpacing := prev.timestamp - prevPrev.timestamp
 
 	newTarget := CompactToBig(prev.bits)
 	var targetSpacing int64
 	if proofOfStake {
 		targetSpacing = StakeTargetSpacing
 	} else {
-		targetSpacing = minInt64(TargetSpacingWorkMax, StakeTargetSpacing*(1+lastNode.height-prev.height))
+		targetSpacing = minInt64(TargetSpacingWorkMax, int64(int32(StakeTargetSpacing)*(1+lastNode.height-prev.height)))
 	}
 	interval := TargetTimespan / targetSpacing
 	targetSpacingBig := big.NewInt(targetSpacing)
@@ -168,6 +201,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 	return BigToCompact(newTarget), nil
 }
 
+/*
 // CalcNextRequiredDifficulty calculates the required difficulty for the block
 // after the end of the current best chain based on the difficulty retarget
 // rules.
@@ -176,7 +210,9 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 func (b *BlockChain) PPCCalcNextRequiredDifficulty(proofOfStake bool) (uint32, error) {
 	return b.ppcCalcNextRequiredDifficulty(b.bestChain, proofOfStake)
 }
+*/
 
+/*
 // setCoinbaseMaturity sets required coinbase maturity and return old one
 // Export required for tests only
 func (b *BlockChain) SetCoinbaseMaturity(coinbaseMaturity int64) (old int64) {
@@ -184,6 +220,7 @@ func (b *BlockChain) SetCoinbaseMaturity(coinbaseMaturity int64) (old int64) {
 	b.chainParams.CoinbaseMaturity = coinbaseMaturity
 	return
 }
+*/
 
 // calcTrust calculates a work value from difficulty bits.  Bitcoin increases
 // the difficulty for generating a block by decreasing the value which the
@@ -211,6 +248,7 @@ func calcTrust(bits uint32, proofOfStake bool) *big.Int {
 	return new(big.Int).Div(oneLsh256, denominator)
 }
 
+/*
 // calcMintAndMoneySupply TODO(?) golint
 func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Block) error {
 
@@ -270,7 +308,9 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 
 	return nil
 }
+*/
 
+/*
 // ppc: total coin age spent in transaction, in the unit of coin-days.
 // Only those coins meeting minimum age requirement counts. As those
 // transactions not in main chain are not currently indexed so we
@@ -333,7 +373,9 @@ func (b *BlockChain) getCoinAgeTx(tx *btcutil.Tx, txStore TxStore) (uint64, erro
 
 	return bnCoinDay.Uint64(), nil
 }
+*/
 
+/*
 // ppc: total coin age spent in block, in the unit of coin-days.
 func (b *BlockChain) getCoinAgeBlock(node *blockNode, block *btcutil.Block) (uint64, error) {
 
@@ -362,6 +404,7 @@ func (b *BlockChain) getCoinAgeBlock(node *blockNode, block *btcutil.Block) (uin
 
 	return nCoinAge, nil
 }
+*/
 
 // PPCGetProofOfStakeReward
 // Export requited, used my ppcwallet createCoinStake method
@@ -394,6 +437,7 @@ func IsCoinStake(tx *btcutil.Tx) bool {
 	return IsCoinStakeTx(tx.MsgTx())
 }
 
+/*
 // ppcNewBlockNode returns a new block node for the given block header.  It is
 // completely disconnected from the chain and the workSum value is just the work
 // for the passed block.  The work sum is updated accordingly when the node is
@@ -419,7 +463,7 @@ func ppcNewBlockNode(
 	}
 	return &node
 }
-
+*/
 func initBlockNodePPC(node *blockNode, blockHeader *wire.BlockHeader, parent *blockNode, blockMeta *wire.Meta) {
 	*node = blockNode{
 		hash:       blockHeader.BlockHash(),
@@ -508,20 +552,22 @@ func bigToShaHash(value *big.Int) (*chainhash.Hash, error) {
 	// Make sure the byte slice is the right length by appending zeros to
 	// pad it out.
 	pbuf := buf
-	if wire.HashSize-blen > 0 {
-		pbuf = make([]byte, wire.HashSize)
+	if chainhash.HashSize-blen > 0 {
+		pbuf = make([]byte, chainhash.HashSize)
 		copy(pbuf, buf)
 	}
 
-	return wire.NewShaHash(pbuf)
+	return chainhash.NewHash(pbuf)
 }
 
+/*
 // PPCGetLastProofOfWorkReward
 // Export required, used in ppcwallet CreateCoinStake method
 func (b *BlockChain) PPCGetLastProofOfWorkReward() (subsidy int64) {
 	lastPOWNode := b.getLastBlockIndex(b.bestChain, false)
 	return PPCGetProofOfWorkReward(lastPOWNode.bits, b.chainParams)
 }
+*/
 
 // ppcGetProofOfWorkReward is Peercoin's validate.go:CalcBlockSubsidy(...)
 // counterpart.
@@ -581,6 +627,7 @@ func getMinFee(tx *btcutil.Tx) int64 {
 	return minFee
 }
 
+/*
 // checkBlockSignature ppc: check block signature
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L2116
 // Export required for tests only
@@ -613,6 +660,7 @@ func CheckBlockSignature(msgBlock *wire.MsgBlock,
 	}
 	return sig.Verify(sha.Bytes(), a.PubKey())
 }
+*/
 
 // Peercoin additional context free transaction checks.
 // Basing on CTransaction::CheckTransaction().
@@ -625,7 +673,7 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error {
 		// 	return DoS(100, error("CTransaction::CheckTransaction() : txout empty for user transaction"));
 		if txOut.IsEmpty() && (!IsCoinBase(tx)) && (!IsCoinStake(tx)) {
 			str := "transaction output empty for user transaction"
-			return ruleError(ErrEmptyTxOut, str)
+			return ruleError(1, str) // todo ppc replace with error code
 		}
 
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L463
@@ -641,6 +689,7 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error {
 	return nil
 }
 
+/*
 // Peercoin additional transaction checks.
 // Basing on CTransaction::ConnectInputs().
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1149
@@ -666,7 +715,7 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, txStore TxStore, blockChain *Bloc
 		maxReward := getProofOfStakeReward(int64(coinAge)) - getMinFee(tx) + MinTxFee
 		if stakeReward > maxReward {
 			str := fmt.Sprintf("%v stake reward value %v exceeded %v", tx.Hash(), stakeReward, maxReward)
-			return ruleError(ErrBadCoinstakeValue, str)
+			return ruleError(1, str) // todo ppc replace with error code
 		}
 	} else {
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1249
@@ -676,12 +725,14 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, txStore TxStore, blockChain *Bloc
 		txFee := satoshiIn - satoshiOut
 		if txFee < getMinFee(tx) {
 			str := fmt.Sprintf("%v not paying required fee=%v, paid=%v", tx.Hash(), getMinFee(tx), txFee)
-			return ruleError(ErrInsufficientFee, str)
+			return ruleError(1, str) // todo ppc replace with error code
 		}
 	}
 	return nil
 }
+*/
 
+/*
 func ppcCheckTransactionInput(tx *btcutil.Tx, txOut *wire.TxIn, originTx *TxData) error {
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1177
 	// ppc: check transaction timestamp
@@ -689,10 +740,11 @@ func ppcCheckTransactionInput(tx *btcutil.Tx, txOut *wire.TxIn, originTx *TxData
 	// 	return DoS(100, error("ConnectInputs() : transaction timestamp earlier than input transaction"));
 	if originTx.Tx.MsgTx().Timestamp.After(tx.MsgTx().Timestamp) {
 		str := "transaction timestamp earlier than input transaction"
-		return ruleError(ErrEarlierTimestamp, str)
+		return ruleError(1, str) // todo ppc replace with error code
 	}
 	return nil
 }
+*/
 
 // Peercoin additional context free block checks.
 // Basing on CBlock::CheckBlock().
@@ -707,7 +759,7 @@ func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
 	for i := 2; i < len(msgBlock.Transactions); i++ {
 		if msgBlock.Transactions[i].IsCoinStake() {
 			str := "coinstake in wrong position"
-			return ruleError(ErrWrongCoinstakePosition, str)
+			return ruleError(1, str) // todo ppc replace with error code
 		}
 	}
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1858
@@ -716,7 +768,7 @@ func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
 	// 	return error("CheckBlock() : coinbase output not empty for proof-of-stake block");
 	if block.IsProofOfStake() && (len(msgBlock.Transactions[0].TxOut) != 1 || !msgBlock.Transactions[0].TxOut[0].IsEmpty()) {
 		str := "coinbase output not empty for proof-of-stake block"
-		return ruleError(ErrCoinbaseNotEmpty, str)
+		return ruleError(1, str) // todo ppc replace with error code
 	}
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1866
 	// Check coinstake timestamp
@@ -726,7 +778,7 @@ func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
 		msgBlock.Transactions[1].Timestamp.Unix()) {
 		str := fmt.Sprintf("coinstake timestamp violation TimeBlock=%v TimeTx=%v",
 			msgBlock.Header.Timestamp, msgBlock.Transactions[1].Timestamp)
-		return ruleError(ErrCoinstakeTimeViolation, str)
+		return ruleError(1, str) // todo ppc replace with error code
 	}
 	for _, tx := range msgBlock.Transactions {
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1881
@@ -735,16 +787,18 @@ func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
 		//  return DoS(50, error("CheckBlock() : block timestamp earlier than transaction timestamp"));
 		if msgBlock.Header.Timestamp.Before(tx.Timestamp) {
 			str := "block timestamp earlier than transaction timestamp"
-			return ruleError(ErrBlockBeforeTx, str)
+			return ruleError(1, str) // todo ppc replace with error code
 		}
 	}
 	// ppc: check block signature
 	// if (!CheckBlockSignature())
 	// 	return DoS(100, error("CheckBlock() : bad block signature"));
-	if !CheckBlockSignature(msgBlock, params) {
-		str := "bad block signature"
-		return ruleError(ErrBadBlockSignature, str)
-	}
+	/*
+		if !CheckBlockSignature(msgBlock, params) {
+			str := "bad block signature"
+			return ruleError(1, str) // todo ppc replace with error code
+		}
+	*/// todo ppc
 	return nil
 }
 
@@ -761,7 +815,7 @@ func (b *BlockChain) ppcProcessOrphan(block *btcutil.Block) error {
 		hasChild = hasChild && (len(childs) > 0)
 		if seen && !hasChild {
 			str := fmt.Sprintf("duplicate proof-of-stake (%v) for orphan block %s", stake, sha)
-			return ruleError(ErrDuplicateStake, str)
+			return ruleError(1, str) // todo ppc replace with error code
 		}
 		stakeSeenOrphan[stake] = true
 	}
@@ -792,13 +846,14 @@ func (b *BlockChain) ppcProcessBlock(block *btcutil.Block, phase processPhase) e
 			hasChild = hasChild && (len(childs) > 0)
 			if seen && !hasChild {
 				str := fmt.Sprintf("duplicate proof-of-stake (%v) for orphan block %s", stake, sha)
-				return ruleError(ErrDuplicateStake, str)
+				return ruleError(1, str) // todo ppc replace with error code
 			}
 		}
 	}
 	return nil
 }
 
+/*
 // GetLastBlockHeader ppc: find last block from db up to lastSha
 func GetLastBlockHeader(db database.Db, lastSha *chainhash.Hash, proofOfStake bool) (
 	header *wire.BlockHeader, meta *wire.Meta, err error) {
@@ -808,7 +863,7 @@ func GetLastBlockHeader(db database.Db, lastSha *chainhash.Hash, proofOfStake bo
 		if err != nil {
 			break
 		}
-		if header.PrevBlock.IsEqual(zeroHash) {
+		if header.PrevBlock.IsEqual(&zeroHash) {
 			break
 		}
 		if isProofOfStake(meta) == proofOfStake {
@@ -818,6 +873,7 @@ func GetLastBlockHeader(db database.Db, lastSha *chainhash.Hash, proofOfStake bo
 	}
 	return
 }
+*/
 
 // GetKernelStakeModifier
 // This function is NOT safe for concurrent access. Use blockmanager.

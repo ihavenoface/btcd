@@ -40,6 +40,7 @@ type BlockHeader struct {
 	Nonce uint32
 
 	// peercoin: proof-of-stake related block index fields.
+	// todo ppc remove
 	Flags uint32
 }
 

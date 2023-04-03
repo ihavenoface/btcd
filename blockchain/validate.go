@@ -742,6 +742,27 @@ func (b *BlockChain) checkBlockContext(block *btcutil.Block, prevNode *blockNode
 
 	fastAdd := flags&BFFastAdd == BFFastAdd
 	if !fastAdd {
+		// Ensure the difficulty specified in the block header matches
+		// the calculated difficulty based on the previous block and
+		// difficulty retarget rules.
+		// ppc: must be done here because we can't determine if block is
+		// proof-of-stake from header
+		// todo ppc check order
+		/*expectedDifficulty, err := b.ppcCalcNextRequiredDifficulty(
+		prevNode, block.IsProofOfStake())
+
+
+		if err != nil {
+			return err
+		}
+		blockDifficulty := header.Bits
+		if blockDifficulty != expectedDifficulty {
+			log.Infof("maybeAcceptBlock : block %v, prevNode %v(%d)", header.BlockHash(), prevNode.hash, prevNode.bits)
+			str := "block difficulty of %d is not the expected value of %d"
+			str = fmt.Sprintf(str, blockDifficulty, expectedDifficulty)
+			return ruleError(ErrUnexpectedDifficulty, str)
+		}
+		*/
 		// Obtain the latest state of the deployed CSV soft-fork in
 		// order to properly guard the new validation behavior based on
 		// the current BIP 9 version bits state.
@@ -1303,6 +1324,6 @@ func (b *BlockChain) CheckConnectBlockTemplate(block *btcutil.Block) error {
 	// is not needed and thus extra work can be avoided.
 	view := NewUtxoViewpoint()
 	view.SetBestHash(&tip.hash)
-	newNode := newBlockNode(&header, tip)
+	newNode := newBlockNodePPC(&header, tip, block.Meta())
 	return b.checkConnectBlock(newNode, block, view, nil)
 }

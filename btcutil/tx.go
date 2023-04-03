@@ -27,6 +27,7 @@ type Tx struct {
 	txHashWitness *chainhash.Hash // Cached transaction witness hash
 	txHasWitness  *bool           // If the transaction has witness data
 	txIndex       int             // Position within a block or TxIndexUnknown
+	txOffset      uint32          // peercoin Offset within a block or TxOffsetUnknown
 }
 
 // MsgTx returns the underlying wire.MsgTx for the transaction.

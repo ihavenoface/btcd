@@ -78,7 +78,7 @@ func (s blockTimeHashSorter) Less(i, j int) bool {
 func (b *BlockChain) getLastStakeModifier(pindex *blockNode) (
 	nStakeModifier uint64, nModifierTime int64, err error) {
 
-	defer timeTrack(now(), fmt.Sprintf("getLastStakeModifier(%v)", pindex.hash))
+	// defer timeTrack(now(), fmt.Sprintf("getLastStakeModifier(%v)", pindex.hash))
 
 	if pindex == nil {
 		err = errors.New("getLastStakeModifier: nil pindex")
@@ -86,10 +86,11 @@ func (b *BlockChain) getLastStakeModifier(pindex *blockNode) (
 	}
 
 	// todo ppc !pindex.parentHash.IsEqual(zeroHash) -> !pindex.parent.hash.IsEqual(&chainhash.Hash{})
-	for !pindex.parent.hash.IsEqual(&zeroHash) && !isGeneratedStakeModifier(pindex.meta) {
+	for pindex.parent != nil && !isGeneratedStakeModifier(pindex.meta) {
 		// todo ppc replaced getPrevNodeFromNode with LookupNode throughout this file
 		//   should be checked for sanity across
-		pindex = b.index.LookupNode(&pindex.hash)
+		// pindex = b.index.LookupNode(&pindex.hash)
+		pindex = b.index.LookupNode(&pindex.parent.hash)
 		if pindex == nil {
 			return
 		}
@@ -133,15 +134,15 @@ func selectBlockFromCandidates(
 	nSelectionIntervalStop int64,
 	nStakeModifierPrev uint64) (pindexSelected *blockNode, err error) {
 
-	defer timeTrack(now(), fmt.Sprintf("selectBlockFromCandidates"))
+	// defer timeTrack(now(), fmt.Sprintf("selectBlockFromCandidates"))
 
 	hashBest := new(chainhash.Hash)
 	fSelected := false
 
 	for _, item := range vSortedByTimestamp {
 
-		pindex, errLoad := b.getBlockNode(item.hash)
-		if errLoad != nil {
+		pindex := b.index.LookupNode(item.hash)
+		if pindex == nil {
 			err = fmt.Errorf("SelectBlockFromCandidates: failed to find block index for candidate block %s", item.hash.String())
 			return
 		}
@@ -227,7 +228,7 @@ func selectBlockFromCandidates(
 func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	nStakeModifier uint64, fGeneratedStakeModifier bool, err error) {
 
-	defer timeTrack(now(), fmt.Sprintf("computeNextStakeModifier(%v)", slice(pindexCurrent.Hash())[0]))
+	// defer timeTrack(now(), fmt.Sprintf("computeNextStakeModifier(%v)", slice(pindexCurrent.Hash())[0]))
 
 	nStakeModifier = 0
 	fGeneratedStakeModifier = false
@@ -238,16 +239,32 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	// if this is the genesis block.
 	// pindexPrev, errPrevNode := b.getPrevNodeFromBlock(pindexCurrent)
 	// todo ppc use conventional scheme
-	prevHash := &pindexCurrent.MsgBlock().Header.PrevBlock
-	pindexPrev := b.index.LookupNode(prevHash)
-	if pindexPrev == nil {
-		err = fmt.Errorf("fetching prev node: %v", nil)
+	// prevHash := &pindexCurrent.MsgBlock().Header.PrevBlock
+	pindexPrev := b.index.LookupNode(&pindexCurrent.MsgBlock().Header.PrevBlock)
+	if pindexPrev.height == 0 {
+		// todo ppc this function might not be needed
+		// err = fmt.Errorf("prev node lookup: %v", nil)
+		fGeneratedStakeModifier = true
 		return
 	}
-	if pindexPrev == nil {
+	/* todo ppc
+	if pindexPrev.hash.IsEqual(&zeroHash) {
 		fGeneratedStakeModifier = true
 		return // genesis block's modifier is 0
 	}
+	*/
+
+	/*
+		pindexPrev, errPrevNode := b.getPrevNodeFromBlock(pindexCurrent)
+		if errPrevNode != nil {
+			err = fmt.Errorf("fetching prev node: %v", errPrevNode)
+			return
+		}
+		if pindexPrev == nil {
+			fGeneratedStakeModifier = true
+			return // genesis block's modifier is 0
+		}
+	*/
 
 	// First find current stake modifier and its generation block time
 	// if it's not old enough, return the same stake modifier
@@ -290,7 +307,7 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	for pindex != nil && (pindex.timestamp >= nSelectionIntervalStart) {
 		vSortedByTimestamp = append(vSortedByTimestamp,
 			blockTimeHash{pindex.timestamp, &pindex.hash})
-		pindex = b.index.LookupNode(&pindex.hash)
+		pindex = b.index.LookupNode(&pindex.parent.hash)
 		// todo ppc error out?
 	}
 	// TODO needs verification
@@ -421,12 +438,12 @@ func (b *BlockChain) getKernelStakeModifier(
 	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
 	err error) {
 
-	defer timeTrack(now(), fmt.Sprintf("getKernelStakeModifier(%v)", hashBlockFrom))
+	// defer timeTrack(now(), fmt.Sprintf("getKernelStakeModifier(%v)", hashBlockFrom))
 
 	//log.Debugf("getKernelStakeModifier : blockFrom = %v", hashBlockFrom)
 
 	nStakeModifier = 0
-	blockFrom, fetchErr := b.HeaderByHash(hashBlockFrom) // todo ppc fetch meta
+	blockFrom, metaFrom, fetchErr := b.HeaderByHashPPC(hashBlockFrom) // todo ppc verify we're fetching meta properly
 	if fetchErr != nil {
 		err = fmt.Errorf("getKernelStakeModifier() : block not found (%v)", fetchErr)
 		return
@@ -459,12 +476,12 @@ func (b *BlockChain) getKernelStakeModifier(
 		if err != nil {
 			return
 		}
-		block, err = b.HeaderByHash(blockSha) // todo ppc fetch meta
+		block, err = b.HeaderByHash(blockSha)
 		if err != nil {
 			return
 		}
 		blockHeight++
-		if isGeneratedStakeModifier(meta) {
+		if isGeneratedStakeModifier(&meta) {
 			nStakeModifierHeight = int32(blockHeight)
 			nStakeModifierTime = block.Timestamp.Unix()
 		}
@@ -502,7 +519,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	timeSource MedianTimeSource, fPrintProofOfStake bool) (
 	hashProofOfStake *chainhash.Hash, success bool, err error) {
 
-	defer timeTrack(now(), fmt.Sprintf("checkStakeKernelHash(%v)", slice(blockFrom.Hash())[0]))
+	// defer timeTrack(now(), fmt.Sprintf("checkStakeKernelHash(%v)", slice(blockFrom.Hash())[0]))
 
 	success = false
 
@@ -518,7 +535,8 @@ func (b *BlockChain) checkStakeKernelHash(
 		return
 	}
 
-	bnTargetPerCoinDay := CompactToBig(nBits)
+	// todo ppc
+	// bnTargetPerCoinDay := CompactToBig(nBits)
 
 	nValueIn := txMsgPrev.TxOut[prevout.Index].Value
 
@@ -550,7 +568,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	var nStakeModifier uint64
 	var nStakeModifierHeight int32
 	var nStakeModifierTime int64
-	if isProtocolV03(b, nTimeTx) { // v0.3 protocol
+	/*if isProtocolV03(b, nTimeTx) { // v0.3 protocol
 		var blockFromSha *chainhash.Hash
 		blockFromSha = blockFrom.Hash()
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err =
@@ -564,14 +582,14 @@ func (b *BlockChain) checkStakeKernelHash(
 		if err != nil {
 			return
 		}
-	} else { // v0.2 protocol
+	} else { // v0.2 protocol*/
 		//ss << nBits;
 		err = writeElement(buf, uint32(nBits))
 		bufSize += 4
 		if err != nil {
 			return
 		}
-	}
+	//}
 
 	err = writeElement(buf, uint32(nTimeBlockFrom))
 	bufSize += 4
@@ -629,12 +647,14 @@ func (b *BlockChain) checkStakeKernelHash(
 	}
 
 	// Now check if proof-of-stake hash meets target protocol
+	/* todo ppc re-enable
 	hashProofOfStakeInt := HashToBig(hashProofOfStake)
 	targetInt := new(big.Int).Mul(bnCoinDayWeight, bnTargetPerCoinDay)
 	//log.Debugf("checkStakeKernelHash() : hashInt = %v, targetInt = %v", hashProofOfStakeInt, targetInt)
 	if hashProofOfStakeInt.Cmp(targetInt) > 0 {
 		return
 	}
+	*/
 
 	//if (fDebug && !fPrintProofOfStake) {
 	if !fPrintProofOfStake {
@@ -664,13 +684,11 @@ func (b *BlockChain) checkStakeKernelHash(
 
 // Check kernel hash target and coinstake signature
 func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSource, nBits uint32) (
-	// todo ppc possibly run lock
-	//  important in general
-	/*
-		b.chainLock.RLock()
-		defer b.chainLock.RUnlock()
-	 */
 	hashProofOfStake *chainhash.Hash, err error) {
+	// todo ppc possibly run lock
+
+	// b.chainLock.RLock()
+	// defer b.chainLock.RUnlock()
 
 	// defer timeTrack(now(), fmt.Sprintf("CheckProofOfStake(%v)", slice(tx.Hash())[0]))
 
@@ -685,7 +703,10 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSo
 	txin := msgTx.TxIn[0]
 
 	// First try finding the previous transaction in database
+	// todo ppc ProcessBlock() holds lock. re-do lock order or avoid FetchUtxoView
+	b.chainLock.Unlock()
 	utxoView, err := b.FetchUtxoView(tx)
+	b.chainLock.Lock()
 	if err != nil {
 		return
 	}
@@ -833,7 +854,7 @@ func DoubleSha256(b []byte) []byte {
 func (b *BlockChain) getStakeModifierChecksum(
 	pindex *btcutil.Block) (checkSum uint32, err error) {
 
-	defer timeTrack(now(), fmt.Sprintf("getStakeModifierChecksum(%v)", slice(pindex.Hash())[0]))
+	// defer timeTrack(now(), fmt.Sprintf("getStakeModifierChecksum(%v)", slice(pindex.Hash())[0]))
 
 	//assert (pindex.pprev || pindex.Sha().IsEqual(hashGenesisBlock))
 	// Hash previous checksum with flags, hashProofOfStake and nStakeModifier
@@ -841,7 +862,7 @@ func (b *BlockChain) getStakeModifierChecksum(
 	buf := bytes.NewBuffer(make([]byte, 0, 50)) // TODO calculate size
 	//CDataStream ss(SER_GETHASH, 0)
 	var parent *blockNode
-	parent = b.index.LookupNode(pindex.Hash())
+	parent = b.index.LookupNode(&pindex.MsgBlock().Header.PrevBlock)
 	if parent == nil {
 		return
 	} else {
@@ -860,8 +881,8 @@ func (b *BlockChain) getStakeModifierChecksum(
 	if err != nil {
 		return
 	}
-	// todo ppc Bytes() -> CloneBytes()
-	_, err = buf.Write(meta.HashProofOfStake.CloneBytes())
+	// todo ppc Bytes() -> slice
+	_, err = buf.Write(meta.HashProofOfStake[:]) // .CloneBytes()?
 	bufSize += 32
 	if err != nil {
 		return

@@ -1007,7 +1007,7 @@ func (b *BlockChain) createChainState() error {
 	genesisBlock := btcutil.NewBlock(b.chainParams.GenesisBlock)
 	genesisBlock.SetHeight(0)
 	header := &genesisBlock.MsgBlock().Header
-	node := newBlockNode(header, nil)
+	node := newBlockNodePPC(header, nil, genesisBlock.Meta())
 	node.status = statusDataStored | statusValid
 	b.bestChain.SetTip(node)
 

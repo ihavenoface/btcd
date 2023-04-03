@@ -29,9 +29,11 @@ const (
 	nProtocolV04UpgradeTime int64 = 0
 )
 
+/*
 func getBlockTrust(block *btcutil.Block) *big.Int {
 	return calcTrust(block.MsgBlock().Header.Bits, block.MsgBlock().IsProofOfStake())
 }
+*/
 
 // ppcoin: entropy bit for stake modifier if chosen by modifier
 func getStakeEntropyBit(b *BlockChain, block *btcutil.Block) (uint32, error) {
@@ -136,14 +138,16 @@ func minInt64(a int64, b int64) int64 {
 	return b
 }
 
+/*
 func now() time.Time {
-	return ppcutil.Now()
+	return btcutil.Now()
 }
 
 func timeTrack(start time.Time, name string) {
-	ppcutil.TimeTrack(log, start, name)
+	// ppcutil.TimeTrack(log, start, name)
 }
 
 func slice(args ...interface{}) []interface{} {
-	return ppcutil.Slice(args)
+	return btcutil.Slice(args)
 }
+*/

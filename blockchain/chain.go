@@ -6,6 +6,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"container/list"
 	"fmt"
 	"sync"
@@ -1265,6 +1266,27 @@ func (b *BlockChain) HeaderByHash(hash *chainhash.Hash) (wire.BlockHeader, error
 	}
 
 	return node.Header(), nil
+}
+
+func (b *BlockChain) HeaderByHashPPC(hash *chainhash.Hash) (wire.BlockHeader, wire.Meta, error) {
+	node := b.index.LookupNode(hash)
+	if node == nil {
+		err := fmt.Errorf("block %s is not known", hash)
+		return wire.BlockHeader{}, wire.Meta{}, err
+	}
+
+	blockHash := node.hash
+	metaBuf, err := b.getBlkMeta(&blockHash)
+	if err != nil {
+		return wire.BlockHeader{}, wire.Meta{}, err
+	}
+	mr := bytes.NewReader(metaBuf)
+	var meta wire.Meta
+	err = meta.Deserialize(mr)
+	if err != nil {
+		return wire.BlockHeader{}, wire.Meta{}, err
+	}
+	return node.Header(), meta, err
 }
 
 // MainChainHasBlock returns whether or not the block with the given hash is in

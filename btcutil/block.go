@@ -133,6 +133,11 @@ func (b *Block) Tx(txNum int) (*Tx, error) {
 		return b.transactions[txNum], nil
 	}
 
+	// ppc: extract tx offsets if needed
+	if b.Meta().TxOffsets == nil {
+		b.TxLoc()
+	}
+
 	// Generate and cache the wrapped transaction and return it.
 	newTx := NewTx(b.msgBlock.Transactions[txNum])
 	newTx.SetIndex(txNum)
@@ -165,6 +170,16 @@ func (b *Block) Transactions() []*Tx {
 			newTx.SetIndex(i)
 			b.transactions[i] = newTx
 		}
+	}
+
+	// ppc: extract tx offsets if needed
+	if b.Meta().TxOffsets == nil {
+		b.TxLoc()
+	} else if len(b.Meta().TxOffsets) != len(b.transactions) {
+		// ppc: bug seems to have been fix, keeping log just in case
+		fmt.Printf("ERROR: Hash: %v, Nb Tx (%v) != Nb Offsets (%v)\n",
+			b.Hash(), len(b.msgBlock.Transactions), len(b.Meta().TxOffsets))
+		b.TxLoc()
 	}
 
 	b.txnsGenerated = true
@@ -205,6 +220,13 @@ func (b *Block) TxLoc() ([]wire.TxLoc, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// ppc: initializing meta offsets
+	b.meta.TxOffsets = make([]uint32, len(txLocs))
+	for i, txLoc := range txLocs {
+		b.meta.TxOffsets[i] = uint32(txLoc.TxStart)
+	}
+
 	return txLocs, err
 }
 

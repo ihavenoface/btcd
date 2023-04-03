@@ -641,6 +641,7 @@ func (b *BlockChain) FetchUtxoView(tx *btcutil.Tx) (*UtxoViewpoint, error) {
 	// Request the utxos from the point of view of the end of the main
 	// chain.
 	view := NewUtxoViewpoint()
+	// todo ppc we have a stray lock somewhere which breaks us at this point
 	b.chainLock.RLock()
 	err := view.fetchUtxosMain(b.db, neededSet)
 	b.chainLock.RUnlock()
