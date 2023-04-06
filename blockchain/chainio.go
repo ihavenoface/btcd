@@ -39,6 +39,9 @@ var (
 	// block headers and contextual information.
 	blockIndexBucketName = []byte("blockheaderidx")
 
+	// ppc block meta
+	blockMetaBucketName = []byte("blockmeta")
+
 	// hashIndexBucketName is the name of the db bucket used to house to the
 	// block hash -> block height index.
 	hashIndexBucketName = []byte("hashidx")
@@ -1033,6 +1036,11 @@ func (b *BlockChain) createChainState() error {
 			return err
 		}
 
+		_, err = meta.CreateBucket(blockMetaBucketName)
+		if err != nil {
+			return err
+		}
+
 		// Create the bucket that houses the chain block hash to height
 		// index.
 		_, err = meta.CreateBucket(hashIndexBucketName)
@@ -1185,7 +1193,15 @@ func (b *BlockChain) initChainState() error {
 			// Initialize the block node for the block, connect it,
 			// and add it to the block index.
 			node := new(blockNode)
-			initBlockNode(node, header, parent)
+			// todo ppc check sanity, placement.
+			//   obviously still experimental to do it here, rather than later
+			metaBuf, err := getBlkMeta(dbTx, header.BlockHash())
+			tempBlock := new(btcutil.Block)
+			err = tempBlock.MetaFromBytes(metaBuf)
+			if err != nil {
+				return err
+			}
+			initBlockNodePPC(node, header, parent, tempBlock.Meta())
 			node.status = status
 			b.index.addNode(node)
 
@@ -1314,6 +1330,13 @@ func dbFetchBlockByNode(dbTx database.Tx, node *blockNode) (*btcutil.Block, erro
 	}
 	block.SetHeight(node.height)
 
+	// todo ppc
+	metaBuf, err := getBlkMeta(dbTx, block.MsgBlock().BlockHash())
+	err = block.MetaFromBytes(metaBuf)
+	if err != nil {
+		return nil, err
+	}
+
 	return block, nil
 }
 
@@ -1348,6 +1371,14 @@ func dbStoreBlock(dbTx database.Tx, block *btcutil.Block) error {
 	}
 	if hasBlock {
 		return nil
+	}
+	sMeta, err := block.MetaToBytes()
+	if err != nil {
+		return err
+	}
+	err = setBlkMeta(dbTx, block.Hash(), sMeta)
+	if err != nil {
+		return err
 	}
 	return dbTx.StoreBlock(block)
 }

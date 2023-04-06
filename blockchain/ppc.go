@@ -123,33 +123,9 @@ func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (bloc
 		if block.isProofOfStake() == proofOfStake {
 			break
 		}
-		block, _ = b.getPrevNodeFromNode(block)
+		block = b.index.LookupNode(&block.parent.hash)
 	}
 	return block
-}
-
-func (b *BlockChain) getPrevNodeFromNode(node *blockNode) (*blockNode, error) {
-	// Return the existing previous block node if it's already there.
-	if node.parent != nil {
-		return node.parent, nil
-	}
-
-	// Genesis block.
-	if node.hash.IsEqual(b.chainParams.GenesisHash) {
-		return nil, nil
-	}
-
-	return node.parent, nil
-	/*
-		// Dynamically load the previous block from the block database, create
-		// a new block node for it, and update the memory chain accordingly.
-		prevBlockNode, err := b.loadBlockNode(node.parentHash)
-		if err != nil {
-			return nil, err
-		}
-
-		return prevBlockNode, nil
-	*/
 }
 
 // calcNextRequiredDifficulty calculates the required difficulty for the block
@@ -170,7 +146,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 	if prev.hash.IsEqual(b.chainParams.GenesisHash) {
 		return b.chainParams.InitialHashTargetBits, nil // first block
 	}
-	prevParent, _ := b.getPrevNodeFromNode(prev)
+	prevParent := b.index.LookupNode(&prev.hash)
 	prevPrev := b.getLastBlockIndex(prevParent, proofOfStake)
 	if prevPrev.hash.IsEqual(b.chainParams.GenesisHash) {
 		return b.chainParams.InitialHashTargetBits, nil // second block
@@ -183,7 +159,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 	if proofOfStake {
 		targetSpacing = StakeTargetSpacing
 	} else {
-		targetSpacing = minInt64(TargetSpacingWorkMax, int64(int32(StakeTargetSpacing)*(1+lastNode.height-prev.height)))
+		targetSpacing = minInt64(TargetSpacingWorkMax, StakeTargetSpacing*int64(1+lastNode.height-prev.height))
 	}
 	interval := TargetTimespan / targetSpacing
 	targetSpacingBig := big.NewInt(targetSpacing)

@@ -6,7 +6,6 @@ package blockchain
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -179,7 +178,7 @@ func selectBlockFromCandidates(
 			return
 		}
 
-		hashSelection, _ := chainhash.NewHash(DoubleSha256(buf.Bytes()))
+		hashSelection, _ := chainhash.NewHash(chainhash.DoubleHashB(buf.Bytes()))
 
 		// the selection hash is divided by 2**32 so that proof-of-stake block
 		// is always favored over proof-of-work block. this is to preserve
@@ -453,7 +452,7 @@ func (b *BlockChain) getKernelStakeModifier(
 		err = fmt.Errorf("getKernelStakeModifier() : block height not found (%v)", fetchErr)
 		return
 	}
-	nStakeModifierHeight = int32(blockFromHeight)
+	nStakeModifierHeight = blockFromHeight
 	blockFromTimestamp := blockFrom.Timestamp.Unix()
 	nStakeModifierTime = blockFromTimestamp
 	nStakeModifierSelectionInterval := getStakeModifierSelectionInterval(b.chainParams)
@@ -482,7 +481,7 @@ func (b *BlockChain) getKernelStakeModifier(
 		}
 		blockHeight++
 		if isGeneratedStakeModifier(&meta) {
-			nStakeModifierHeight = int32(blockHeight)
+			nStakeModifierHeight = blockHeight
 			nStakeModifierTime = block.Timestamp.Unix()
 		}
 	}
@@ -568,7 +567,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	var nStakeModifier uint64
 	var nStakeModifierHeight int32
 	var nStakeModifierTime int64
-	/*if isProtocolV03(b, nTimeTx) { // v0.3 protocol
+	if isProtocolV03(b, nTimeTx) { // v0.3 protocol
 		var blockFromSha *chainhash.Hash
 		blockFromSha = blockFrom.Hash()
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err =
@@ -582,21 +581,21 @@ func (b *BlockChain) checkStakeKernelHash(
 		if err != nil {
 			return
 		}
-	} else { // v0.2 protocol*/
+	} else { // v0.2 protocol
 		//ss << nBits;
 		err = writeElement(buf, uint32(nBits))
 		bufSize += 4
 		if err != nil {
 			return
 		}
-	//}
+	}
 
 	err = writeElement(buf, uint32(nTimeBlockFrom))
 	bufSize += 4
 	if err != nil {
 		return
 	}
-	err = writeElement(buf, uint32(nTxPrevOffset))
+	err = writeElement(buf, nTxPrevOffset)
 	bufSize += 4
 	if err != nil {
 		return
@@ -606,7 +605,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	if err != nil {
 		return
 	}
-	err = writeElement(buf, uint32(prevout.Index))
+	err = writeElement(buf, prevout.Index)
 	bufSize += 4
 	if err != nil {
 		return
@@ -620,7 +619,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	//ss << nTimeBlockFrom << nTxPrevOffset << txPrev.nTime << prevout.n << nTimeTx;
 
 	hashProofOfStake, err = chainhash.NewHash(
-		DoubleSha256(buf.Bytes()[:bufSize]))
+		chainhash.DoubleHashB(buf.Bytes()[:bufSize]))
 	if err != nil {
 		return
 	}
@@ -704,6 +703,7 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSo
 
 	// First try finding the previous transaction in database
 	// todo ppc ProcessBlock() holds lock. re-do lock order or avoid FetchUtxoView
+	// todo ppc we might be able to pass in dbTx
 	b.chainLock.Unlock()
 	utxoView, err := b.FetchUtxoView(tx)
 	b.chainLock.Lock()
@@ -740,7 +740,7 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSo
 	// Read block header
 	// The desired block height is in the main chain, so look it up
 	// from the main chain database.
-	/* todo ppc
+	/* todo ppc block should be in mem but we check anyway
 	prevBlockHash, err := b.db.FetchBlockShaByHeight(txPrevData.BlockHeight)
 	if err != nil {
 		err = fmt.Errorf("CheckProofOfStake() : read block failed (%v)", err) // unable to read block of previous transaction
@@ -842,13 +842,6 @@ func checkCoinStakeTimestamp(params *chaincfg.Params,
 	return ((nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxClockDrift))
 }
 
-// todo ppc added here for convenience, probably redundant
-func DoubleSha256(b []byte) []byte {
-	first := sha256.Sum256(b)
-	second := sha256.Sum256(first[:])
-	return second[:]
-}
-
 // Get stake modifier checksum
 // called from main.cpp
 func (b *BlockChain) getStakeModifierChecksum(
@@ -896,7 +889,7 @@ func (b *BlockChain) getStakeModifierChecksum(
 	//uint256 hashChecksum = Hash(ss.begin(), ss.end())
 	var hashChecksum *chainhash.Hash
 	hashChecksum, err = chainhash.NewHash(
-		DoubleSha256(buf.Bytes()[:bufSize]))
+		chainhash.DoubleHashB(buf.Bytes()[:bufSize]))
 	if err != nil {
 		return
 	}
@@ -913,6 +906,7 @@ func (b *BlockChain) getStakeModifierChecksum(
 // called from (main.cpp)
 func (b *BlockChain) checkStakeModifierCheckpoints(
 	nHeight int32, nStakeModifierChecksum uint32) bool {
+	// todo ppc
 	if b.chainParams.Name == "testnet3" {
 		return true // Testnet has no checkpoints
 	}

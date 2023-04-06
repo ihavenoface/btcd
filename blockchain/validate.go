@@ -748,9 +748,8 @@ func (b *BlockChain) checkBlockContext(block *btcutil.Block, prevNode *blockNode
 		// ppc: must be done here because we can't determine if block is
 		// proof-of-stake from header
 		// todo ppc check order
-		/*expectedDifficulty, err := b.ppcCalcNextRequiredDifficulty(
-		prevNode, block.IsProofOfStake())
-
+		expectedDifficulty, err := b.ppcCalcNextRequiredDifficulty(
+			prevNode, block.IsProofOfStake())
 
 		if err != nil {
 			return err
@@ -762,7 +761,6 @@ func (b *BlockChain) checkBlockContext(block *btcutil.Block, prevNode *blockNode
 			str = fmt.Sprintf(str, blockDifficulty, expectedDifficulty)
 			return ruleError(ErrUnexpectedDifficulty, str)
 		}
-		*/
 		// Obtain the latest state of the deployed CSV soft-fork in
 		// order to properly guard the new validation behavior based on
 		// the current BIP 9 version bits state.

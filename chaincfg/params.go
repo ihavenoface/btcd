@@ -34,7 +34,7 @@ var (
 	// testNet3PowLimit is the highest proof of work value a Bitcoin block
 	// can have for the test network (version 3).  It is the value
 	// 2^224 - 1.
-	testNet3PowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
+	testNet3PowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 228), bigOne)
 
 	// simNetPowLimit is the highest proof of work value a Bitcoin block
 	// can have for the simulation test network.  It is the value 2^255 - 1.
@@ -555,13 +555,13 @@ var TestNet3Params = Params{
 	},
 
 	// Chain parameters
-	GenesisBlock:             &testNet3GenesisBlockPPC,
-	GenesisHash:              &testNet3GenesisHashPPC,
-	PowLimit:                 testNet3PowLimit,
-	PowLimitBits:             0x1d00ffff,
-	BIP0034Height:            21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
-	BIP0065Height:            581885, // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
-	BIP0066Height:            330776, // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
+	GenesisBlock:  &testNet3GenesisBlockPPC,
+	GenesisHash:   &testNet3GenesisHashPPC,
+	PowLimit:      testNet3PowLimit,
+	PowLimitBits:  0x1d07ffff,
+	BIP0034Height: 21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
+	BIP0065Height: 581885, // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
+	BIP0066Height: 330776, // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
 	// CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
@@ -669,11 +669,17 @@ var TestNet3Params = Params{
 	HDCoinType: 1,
 
 	// Peercoin
-	StakeMinAge:              60 * 60 * 24, // test net min age is 1 day
-	CoinbaseMaturity:         60,
-	InitialHashTargetBits:    0x1d07ffff,
-	ModifierInterval:         60 * 20, // test net modifier interval is 20 minutes
-	StakeModifierCheckpoints: map[int64]uint32{},
+	StakeMinAge:           60 * 60 * 24, // test net min age is 1 day
+	CoinbaseMaturity:      60,
+	InitialHashTargetBits: 0x1d07ffff,
+	ModifierInterval:      60 * 20, // test net modifier interval is 20 minutes
+	// todo ppc currently unused for testnet
+	StakeModifierCheckpoints: map[int64]uint32{
+		0:     uint32(0x0e00670b),
+		19080: uint32(0x3711dc3a),
+		30583: uint32(0xb480fade),
+		99999: uint32(0x9a62eaec),
+	},
 }
 
 // SimNetParams defines the network parameters for the simulation test Bitcoin
