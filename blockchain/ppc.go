@@ -117,7 +117,7 @@ func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (bloc
 		if block.height == 0 {
 			break
 		}
-		if block.parent == nil { // todo ppc block.parentHash -> block.parent
+		if block.parent == nil {
 			break
 		}
 		if block.isProofOfStake() == proofOfStake {
@@ -136,7 +136,7 @@ func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (bloc
 // Peercoin https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L902
 func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfStake bool) (uint32, error) {
 
-	if lastNode == nil {
+	if lastNode.hash.IsEqual(b.chainParams.GenesisHash) { // todo ppc
 		return b.chainParams.PowLimitBits, nil // genesis block
 	}
 
@@ -146,7 +146,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 	if prev.hash.IsEqual(b.chainParams.GenesisHash) {
 		return b.chainParams.InitialHashTargetBits, nil // first block
 	}
-	prevParent := b.index.LookupNode(&prev.hash)
+	prevParent := b.index.LookupNode(&prev.parent.hash)
 	prevPrev := b.getLastBlockIndex(prevParent, proofOfStake)
 	if prevPrev.hash.IsEqual(b.chainParams.GenesisHash) {
 		return b.chainParams.InitialHashTargetBits, nil // second block
@@ -159,7 +159,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 	if proofOfStake {
 		targetSpacing = StakeTargetSpacing
 	} else {
-		targetSpacing = minInt64(TargetSpacingWorkMax, StakeTargetSpacing*int64(1+lastNode.height-prev.height))
+		targetSpacing = minInt64(TargetSpacingWorkMax, StakeTargetSpacing*(int64(1+lastNode.height-prev.height)))
 	}
 	interval := TargetTimespan / targetSpacing
 	targetSpacingBig := big.NewInt(targetSpacing)
