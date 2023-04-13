@@ -6,6 +6,9 @@ package blockchain
 
 import (
 	"fmt"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
+	"github.com/btcsuite/btcd/txscript"
+
 	// "github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg"
 	// "github.com/btcsuite/btcd/txscript"
@@ -224,7 +227,7 @@ func calcTrust(bits uint32, proofOfStake bool) *big.Int {
 	return new(big.Int).Div(oneLsh256, denominator)
 }
 
-/*
+
 // calcMintAndMoneySupply TODO(?) golint
 func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Block) error {
 
@@ -232,8 +235,9 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 	nValueIn := int64(0)
 	nValueOut := int64(0)
 
-	// b.FetchUtxoView(tx)
-	txStore, err := b.fetchInputTransactions(node, block)
+	// todo ppc
+	utxoView := NewUtxoViewpoint()
+	err := utxoView.fetchInputUtxos(b.db, block)
 	if err != nil {
 		return err
 	}
@@ -251,11 +255,12 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 		} else {
 			nTxValueIn := int64(0)
 			for _, txIn := range tx.MsgTx().TxIn {
-				txInHash := &txIn.PreviousOutPoint.Hash
-				originTx, _ := txStore[*txInHash]
-				originTxIndex := txIn.PreviousOutPoint.Index
-				originTxSatoshi := originTx.Tx.MsgTx().TxOut[originTxIndex].Value
-				nTxValueIn += originTxSatoshi
+				// todo ppc placeholder. should be replaced
+				originTx := utxoView.LookupEntry(txIn.PreviousOutPoint)
+				// todo ppc error out when not found
+				// originTxIndex := txIn.PreviousOutPoint.Index
+				// originTxSatoshi := originTx.Amount() // originTx.Tx.MsgTx().TxOut[originTxIndex].Value
+				nTxValueIn += originTx.Amount()
 			}
 			nValueIn += nTxValueIn
 			nValueOut += nTxValueOut
@@ -270,8 +275,8 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 	// ppc: track money supply and mint amount info
 	block.Meta().Mint = nValueOut - nValueIn + nFees
 	var prevNode *blockNode
-	prevNode, err = b.getPrevNodeFromNode(node)
-	if err != nil {
+	prevNode = b.index.LookupNode(&node.hash)
+	if prevNode == nil {
 		return err
 	}
 	if prevNode == nil {
@@ -284,7 +289,6 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 
 	return nil
 }
-*/
 
 /*
 // ppc: total coin age spent in transaction, in the unit of coin-days.
@@ -294,7 +298,7 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 // guaranteed to be in main chain by sync-checkpoint. This rule is
 // introduced to help nodes establish a consistent view of the coin
 // age (trust score) of competing branches.
-func (b *BlockChain) getCoinAgeTx(tx *btcutil.Tx, txStore TxStore) (uint64, error) {
+func getCoinAgeTx(tx *btcutil.Tx, utxoView UtxoViewpoint) (uint64, error) {
 
 	bnCentSecond := big.NewInt(0) // coin age in the unit of cent-seconds
 
@@ -306,25 +310,28 @@ func (b *BlockChain) getCoinAgeTx(tx *btcutil.Tx, txStore TxStore) (uint64, erro
 
 	for _, txIn := range tx.MsgTx().TxIn {
 		// First try finding the previous transaction in database
-		txInHash := &txIn.PreviousOutPoint.Hash
-		txPrev, ok := txStore[*txInHash]
-		if !ok || txPrev.Tx == nil {
+		txPrev := utxoView.LookupEntry(txIn.PreviousOutPoint)
+		if txPrev == nil {
 			continue // previous transaction not in main chain
 		}
-		txPrevTime := txPrev.Tx.MsgTx().Timestamp.Unix()
-		if nTime < txPrevTime {
-			err := fmt.Errorf("Transaction timestamp violation")
-			return 0, err // Transaction timestamp violation
-		}
+		/*
+			// todo ppc v3 tx does not carry timestamps, use block instead
+			// txPrevTime := txPrev.Tx.MsgTx().Timestamp.Unix()
+			if nTime < txPrevTime {
+				err := fmt.Errorf("Transaction timestamp violation")
+				return 0, err // Transaction timestamp violation
+			}
+		//
 
 		// Read block header
 		// The desired block height is in the main chain, so look it up
 		// from the main chain database.
-		txPrevBlockHash, err := b.db.FetchBlockShaByHeight(txPrev.BlockHeight)
+		txPrevBlock, err := blockchain.BlockByHeight(txPrev.BlockHeight())
 		if err != nil {
 			err = fmt.Errorf("CheckProofOfStake() : read block failed") // unable to read block of previous transaction
 			return 0, err
 		}
+		/* todo ppc
 		txPrevBlock, err := b.db.FetchBlockBySha(txPrevBlockHash)
 		if err != nil {
 			err = fmt.Errorf("CheckProofOfStake() : read block failed") // unable to read block of previous transaction
@@ -334,13 +341,14 @@ func (b *BlockChain) getCoinAgeTx(tx *btcutil.Tx, txStore TxStore) (uint64, erro
 			continue // only count coins meeting min age requirement
 		}
 
-		txPrevIndex := txIn.PreviousOutPoint.Index
-		nValueIn := txPrev.Tx.MsgTx().TxOut[txPrevIndex].Value
+		// todo ppc
+		//txPrevIndex := txIn.PreviousOutPoint.Index
+		nValueIn := txPrev.Amount()
 		bnCentSecond.Add(bnCentSecond,
-			new(big.Int).Div(new(big.Int).Mul(big.NewInt(nValueIn), big.NewInt((nTime-txPrevTime))),
+			new(big.Int).Div(new(big.Int).Mul(big.NewInt(nValueIn), big.NewInt((nTime-txPrevBlock.MsgBlock().Header.Timestamp.Unix()))),
 				big.NewInt(Cent)))
 
-		log.Debugf("coin age nValueIn=%v nTimeDiff=%v bnCentSecond=%v", nValueIn, nTime-txPrevTime, bnCentSecond.String())
+		log.Debugf("coin age nValueIn=%v nTimeDiff=%v bnCentSecond=%v", nValueIn, nTime-txPrevBlock.MsgBlock().Header.Timestamp.Unix(), bnCentSecond.String())
 	}
 
 	bnCoinDay := new(big.Int).Div(new(big.Int).Mul(bnCentSecond, big.NewInt(Cent)),
@@ -536,24 +544,24 @@ func bigToShaHash(value *big.Int) (*chainhash.Hash, error) {
 	return chainhash.NewHash(pbuf)
 }
 
-/*
+
 // PPCGetLastProofOfWorkReward
 // Export required, used in ppcwallet CreateCoinStake method
+// todo ppc unused -> ppcGetLastProofOfWorkRewardMsg in netsync
 func (b *BlockChain) PPCGetLastProofOfWorkReward() (subsidy int64) {
-	lastPOWNode := b.getLastBlockIndex(b.bestChain, false)
+	lastPOWNode := b.getLastBlockIndex(b.bestChain.Tip(), false)
 	return PPCGetProofOfWorkReward(lastPOWNode.bits, b.chainParams)
 }
-*/
 
 // ppcGetProofOfWorkReward is Peercoin's validate.go:CalcBlockSubsidy(...)
 // counterpart.
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L829
 // Export required, used in NewBlockTemplate method
-func PPCGetProofOfWorkReward(nBits uint32, netParams *chaincfg.Params) (subsidy int64) {
+func PPCGetProofOfWorkReward(nBits uint32, chainParams *chaincfg.Params) (subsidy int64) {
 	bigTwo := new(big.Int).SetInt64(2)
 	bnSubsidyLimit := new(big.Int).SetInt64(MaxMintProofOfWork)
 	bnTarget := CompactToBig(nBits)
-	bnTargetLimit := netParams.PowLimit
+	bnTargetLimit := chainParams.PowLimit
 	// TODO(kac-) wat? bnTargetLimit.SetCompact(bnTargetLimit.GetCompact());
 	bnTargetLimit = CompactToBig(BigToCompact(bnTargetLimit))
 	// ppc: subsidy is cut in half every 16x multiply of difficulty
@@ -603,7 +611,6 @@ func getMinFee(tx *btcutil.Tx) int64 {
 	return minFee
 }
 
-/*
 // checkBlockSignature ppc: check block signature
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L2116
 // Export required for tests only
@@ -630,13 +637,14 @@ func CheckBlockSignature(msgBlock *wire.MsgBlock,
 	if !ok {
 		return false
 	}
-	sig, err := btcec.ParseSignature(msgBlock.Signature, btcec.S256())
+	// todo ppc btcec.ParseSignature(msgBlock.Signature, btcec.S256()) -> ecdsa.ParseSignature(msgBlock.Signature)
+	sig, err := ecdsa.ParseSignature(msgBlock.Signature)
 	if err != nil {
 		return false
 	}
-	return sig.Verify(sha.Bytes(), a.PubKey())
+	// todo ppc .Bytes() -> slice
+	return sig.Verify(sha[:], a.PubKey())
 }
-*/
 
 // Peercoin additional context free transaction checks.
 // Basing on CTransaction::CheckTransaction().
@@ -649,7 +657,7 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error {
 		// 	return DoS(100, error("CTransaction::CheckTransaction() : txout empty for user transaction"));
 		if txOut.IsEmpty() && (!IsCoinBase(tx)) && (!IsCoinStake(tx)) {
 			str := "transaction output empty for user transaction"
-			return ruleError(1, str) // todo ppc replace with error code
+			return ruleError(ErrEmptyTxOut, str)
 		}
 
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L463
@@ -665,11 +673,10 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error {
 	return nil
 }
 
-/*
 // Peercoin additional transaction checks.
 // Basing on CTransaction::ConnectInputs().
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1149
-func ppcCheckTransactionInputs(tx *btcutil.Tx, txStore TxStore, blockChain *BlockChain,
+func ppcCheckTransactionInputs(tx *btcutil.Tx, utxoView *UtxoViewpoint,
 	satoshiIn int64, satoshiOut int64) error {
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1230
 	// ppc: coin stake tx earns reward instead of paying fee
@@ -683,7 +690,8 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, txStore TxStore, blockChain *Bloc
 	// 	return DoS(100, error("ConnectInputs() : %s stake reward exceeded", GetHash().ToString().substr(0,10).c_str()));
 	// }
 	if IsCoinStake(tx) {
-		coinAge, err := blockChain.getCoinAgeTx(tx, txStore)
+		/* todo ppc
+		coinAge, err := getCoinAgeTx(tx, utxoView)
 		if err != nil {
 			return fmt.Errorf("unable to get coin age for coinstake: %v", err)
 		}
@@ -691,8 +699,9 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, txStore TxStore, blockChain *Bloc
 		maxReward := getProofOfStakeReward(int64(coinAge)) - getMinFee(tx) + MinTxFee
 		if stakeReward > maxReward {
 			str := fmt.Sprintf("%v stake reward value %v exceeded %v", tx.Hash(), stakeReward, maxReward)
-			return ruleError(1, str) // todo ppc replace with error code
+			return ruleError(ErrBadCoinstakeValue, str)
 		}
+		*/
 	} else {
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1249
 		// ppc: enforce transaction fees for every block
@@ -701,12 +710,11 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, txStore TxStore, blockChain *Bloc
 		txFee := satoshiIn - satoshiOut
 		if txFee < getMinFee(tx) {
 			str := fmt.Sprintf("%v not paying required fee=%v, paid=%v", tx.Hash(), getMinFee(tx), txFee)
-			return ruleError(1, str) // todo ppc replace with error code
+			return ruleError(ErrInsufficientFee, str)
 		}
 	}
 	return nil
 }
-*/
 
 /*
 func ppcCheckTransactionInput(tx *btcutil.Tx, txOut *wire.TxIn, originTx *TxData) error {
@@ -716,7 +724,7 @@ func ppcCheckTransactionInput(tx *btcutil.Tx, txOut *wire.TxIn, originTx *TxData
 	// 	return DoS(100, error("ConnectInputs() : transaction timestamp earlier than input transaction"));
 	if originTx.Tx.MsgTx().Timestamp.After(tx.MsgTx().Timestamp) {
 		str := "transaction timestamp earlier than input transaction"
-		return ruleError(1, str) // todo ppc replace with error code
+		return ruleError(ErrEarlierTimestamp, str)
 	}
 	return nil
 }
@@ -725,7 +733,7 @@ func ppcCheckTransactionInput(tx *btcutil.Tx, txOut *wire.TxIn, originTx *TxData
 // Peercoin additional context free block checks.
 // Basing on CBlock::CheckBlock().
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1829
-func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
+func ppcCheckBlockSanity(chainParams *chaincfg.Params, block *btcutil.Block) error {
 	msgBlock := block.MsgBlock()
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1853
 	// ppc: only the second transaction can be the optional coinstake
@@ -735,7 +743,7 @@ func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
 	for i := 2; i < len(msgBlock.Transactions); i++ {
 		if msgBlock.Transactions[i].IsCoinStake() {
 			str := "coinstake in wrong position"
-			return ruleError(1, str) // todo ppc replace with error code
+			return ruleError(ErrWrongCoinstakePosition, str)
 		}
 	}
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1858
@@ -744,17 +752,17 @@ func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
 	// 	return error("CheckBlock() : coinbase output not empty for proof-of-stake block");
 	if block.IsProofOfStake() && (len(msgBlock.Transactions[0].TxOut) != 1 || !msgBlock.Transactions[0].TxOut[0].IsEmpty()) {
 		str := "coinbase output not empty for proof-of-stake block"
-		return ruleError(1, str) // todo ppc replace with error code
+		return ruleError(ErrCoinbaseNotEmpty, str)
 	}
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1866
 	// Check coinstake timestamp
 	// if (IsProofOfStake() && !CheckCoinStakeTimestamp(GetBlockTime(), (int64)vtx[1].nTime))
 	// 	return DoS(50, error("CheckBlock() : coinstake timestamp violation nTimeBlock=%u nTimeTx=%u", GetBlockTime(), vtx[1].nTime));
-	if msgBlock.IsProofOfStake() && !checkCoinStakeTimestamp(params, msgBlock.Header.Timestamp.Unix(),
+	if msgBlock.IsProofOfStake() && !checkCoinStakeTimestamp(chainParams, msgBlock.Header.Timestamp.Unix(),
 		msgBlock.Transactions[1].Timestamp.Unix()) {
 		str := fmt.Sprintf("coinstake timestamp violation TimeBlock=%v TimeTx=%v",
 			msgBlock.Header.Timestamp, msgBlock.Transactions[1].Timestamp)
-		return ruleError(1, str) // todo ppc replace with error code
+		return ruleError(ErrCoinstakeTimeViolation, str)
 	}
 	for _, tx := range msgBlock.Transactions {
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1881
@@ -763,18 +771,17 @@ func ppcCheckBlockSanity(params *chaincfg.Params, block *btcutil.Block) error {
 		//  return DoS(50, error("CheckBlock() : block timestamp earlier than transaction timestamp"));
 		if msgBlock.Header.Timestamp.Before(tx.Timestamp) {
 			str := "block timestamp earlier than transaction timestamp"
-			return ruleError(1, str) // todo ppc replace with error code
+			return ruleError(ErrBlockBeforeTx, str)
 		}
 	}
 	// ppc: check block signature
 	// if (!CheckBlockSignature())
 	// 	return DoS(100, error("CheckBlock() : bad block signature"));
-	/*
-		if !CheckBlockSignature(msgBlock, params) {
-			str := "bad block signature"
-			return ruleError(1, str) // todo ppc replace with error code
-		}
-	*/// todo ppc
+	// todo ppc enable for PoW blocks
+	if msgBlock.IsProofOfStake() && !CheckBlockSignature(msgBlock, chainParams) {
+		str := "bad block signature"
+		return ruleError(ErrBadBlockSignature, str)
+	}
 	return nil
 }
 
@@ -791,7 +798,7 @@ func (b *BlockChain) ppcProcessOrphan(block *btcutil.Block) error {
 		hasChild = hasChild && (len(childs) > 0)
 		if seen && !hasChild {
 			str := fmt.Sprintf("duplicate proof-of-stake (%v) for orphan block %s", stake, sha)
-			return ruleError(1, str) // todo ppc replace with error code
+			return ruleError(ErrDuplicateStake, str)
 		}
 		stakeSeenOrphan[stake] = true
 	}
@@ -822,14 +829,14 @@ func (b *BlockChain) ppcProcessBlock(block *btcutil.Block, phase processPhase) e
 			hasChild = hasChild && (len(childs) > 0)
 			if seen && !hasChild {
 				str := fmt.Sprintf("duplicate proof-of-stake (%v) for orphan block %s", stake, sha)
-				return ruleError(1, str) // todo ppc replace with error code
+				return ruleError(ErrDuplicateStake, str)
 			}
 		}
 	}
 	return nil
 }
 
-/*
+/* todo ppc unused -> netsync
 // GetLastBlockHeader ppc: find last block from db up to lastSha
 func GetLastBlockHeader(db database.Db, lastSha *chainhash.Hash, proofOfStake bool) (
 	header *wire.BlockHeader, meta *wire.Meta, err error) {

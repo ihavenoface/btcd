@@ -175,6 +175,8 @@ type Params struct {
 	// GenesisHash is the starting block hash.
 	GenesisHash *chainhash.Hash
 
+	GenesisMeta *wire.Meta
+
 	// PowLimit defines the highest allowed proof of work value for a block
 	// as a uint256.
 	PowLimit *big.Int
@@ -277,7 +279,7 @@ type Params struct {
 	InitialHashTargetBits uint32
 	// Modifier interval: time to elapse before new modifier is computed
 	ModifierInterval         int64
-	StakeModifierCheckpoints map[int64]uint32
+	StakeModifierCheckpoints map[int32]uint32
 }
 
 // MainNetParams defines the network parameters for the main Bitcoin network.
@@ -294,13 +296,14 @@ var MainNetParams = Params{
 	},
 
 	// Chain parameters
-	GenesisBlock:             &genesisBlockPPC,
-	GenesisHash:              &genesisHashPPC,
-	PowLimit:                 mainPowLimit,
-	PowLimitBits:             0x1d00ffff,
-	BIP0034Height:            227931, // 000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8
-	BIP0065Height:            388381, // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
-	BIP0066Height:            363725, // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
+	GenesisBlock:  &genesisBlockPPC,
+	GenesisHash:   &genesisHashPPC,
+	GenesisMeta:   &genesisMeta,
+	PowLimit:      mainPowLimit,
+	PowLimitBits:  0x1d00ffff,
+	BIP0034Height: 227931, // 000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8
+	BIP0065Height: 388381, // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
+	BIP0066Height: 363725, // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
 	// CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14, // 14 days
@@ -424,7 +427,7 @@ var MainNetParams = Params{
 	CoinbaseMaturity:      100,
 	InitialHashTargetBits: 0x1c00ffff,
 	ModifierInterval:      6 * 60 * 60, // Set to 6-hour for production network and 20-minute for test network
-	StakeModifierCheckpoints: map[int64]uint32{
+	StakeModifierCheckpoints: map[int32]uint32{
 		0:     uint32(0x0e00670b),
 		19080: uint32(0xad4e4d29),
 		30583: uint32(0xdc7bf136),
@@ -444,6 +447,7 @@ var RegressionNetParams = Params{
 	// Chain parameters
 	GenesisBlock:             &regTestGenesisBlock,
 	GenesisHash:              &regTestGenesisHash,
+	GenesisMeta:              &genesisMeta,
 	PowLimit:                 regressionPowLimit,
 	PowLimitBits:             0x207fffff,
 	CoinbaseMaturity:         100,
@@ -557,6 +561,7 @@ var TestNet3Params = Params{
 	// Chain parameters
 	GenesisBlock:  &testNet3GenesisBlockPPC,
 	GenesisHash:   &testNet3GenesisHashPPC,
+	GenesisMeta:   &genesisMeta,
 	PowLimit:      testNet3PowLimit,
 	PowLimitBits:  0x1d07ffff,
 	BIP0034Height: 21111,  // 0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8
@@ -674,8 +679,10 @@ var TestNet3Params = Params{
 	InitialHashTargetBits: 0x1d07ffff,
 	ModifierInterval:      60 * 20, // test net modifier interval is 20 minutes
 	// todo ppc currently unused for testnet
-	StakeModifierCheckpoints: map[int64]uint32{
+	StakeModifierCheckpoints: map[int32]uint32{
 		0:     uint32(0x0e00670b),
+		1:     uint32(0xbc4b99b6),
+		401:   uint32(0x1d084ed3),
 		19080: uint32(0x3711dc3a),
 		30583: uint32(0xb480fade),
 		99999: uint32(0x9a62eaec),
@@ -698,6 +705,7 @@ var SimNetParams = Params{
 	// Chain parameters
 	GenesisBlock:             &simNetGenesisBlock,
 	GenesisHash:              &simNetGenesisHash,
+	GenesisMeta:              &genesisMeta,
 	PowLimit:                 simNetPowLimit,
 	PowLimitBits:             0x207fffff,
 	BIP0034Height:            0, // Always active on simnet
@@ -826,6 +834,7 @@ func CustomSignetParams(challenge []byte, dnsSeeds []DNSSeed) Params {
 		// Chain parameters
 		GenesisBlock:             &sigNetGenesisBlock,
 		GenesisHash:              &sigNetGenesisHash,
+		GenesisMeta:              &genesisMeta,
 		PowLimit:                 sigNetPowLimit,
 		PowLimitBits:             0x1e0377ae,
 		BIP0034Height:            1,

@@ -564,6 +564,17 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 			"that extends the main chain")
 	}
 
+	// peercoin
+	block.Meta().ChainTrust = *node.workSum
+	//log.Debugf("Block %v trust = %v", node.height, node.workSum)
+
+	// ppcoin: calculate block mint and money supply
+	// todo ppc, probably incorrect
+	err := b.calcMintAndMoneySupply(node, block)
+	if err != nil {
+		return err
+	}
+
 	// Sanity check the correct number of stxos are provided.
 	if len(stxos) != countSpentOutputs(block) {
 		return AssertError("connectBlock called with inconsistent " +
@@ -580,7 +591,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 	}
 
 	// Write any block status changes to DB before updating best state.
-	err := b.index.flushToDB()
+	err = b.index.flushToDB()
 	if err != nil {
 		return err
 	}

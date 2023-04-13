@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/mempool"
 	peerpkg "github.com/btcsuite/btcd/peer"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcd/btcutil"
 )
 
 const (
@@ -1343,6 +1343,31 @@ out:
 					peerID = sm.syncPeer.ID()
 				}
 				msg.reply <- peerID
+
+			/* todo ppc
+			case getKernelStakeModifierMsg: // ppc:
+				stakeModifier, err := b.blockChain.GetKernelStakeModifier(
+					msg.hash, msg.timeSource)
+				msg.reply <- getKernelStakeModifierResponse{
+					StakeModifier: stakeModifier,
+					err:           err,
+				}
+
+			case ppcCalcNextReqDifficultyMsg: // ppc:
+				difficulty, err :=
+					b.blockChain.PPCCalcNextRequiredDifficulty(msg.proofOfStake)
+				msg.reply <- ppcCalcNextReqDifficultyResponse{
+					difficulty: difficulty,
+					err:        err,
+				}
+
+			case ppcGetLastProofOfWorkRewardMsg: // ppc:
+				subsidy := b.blockChain.PPCGetLastProofOfWorkReward()
+				msg.reply <- ppcGetLastProofOfWorkRewardResponse{
+					subsidy: subsidy,
+					err:     nil,
+				}
+			*/
 
 			case processBlockMsg:
 				_, isOrphan, err := sm.chain.ProcessBlock(

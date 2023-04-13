@@ -5,6 +5,7 @@
 package chaincfg
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -141,6 +142,14 @@ var genesisBlockPPC = wire.MsgBlock{
 		Nonce:      0x81e582ab,
 	},
 	Transactions: []*wire.MsgTx{&genesisCoinbaseTxPPC},
+	Signature:    []byte{},
+}
+
+var genesisMeta = wire.Meta{
+	StakeModifier:         0,
+	StakeModifierChecksum: 0x0e00670b,
+	Flags:                 6,
+	ChainTrust:            *big.NewInt(1),
 }
 
 // regTestGenesisHash is the hash of the first block in the block chain for the

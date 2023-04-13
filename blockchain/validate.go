@@ -295,6 +295,15 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 		}
 	}
 
+	// Peercoin - sanity checks
+	// todo ppc implement v3
+	if tx.MsgTx().Version < 3 {
+		ppcErr := ppcCheckTransactionSanity(tx)
+		if ppcErr != nil {
+			return ppcErr
+		}
+	}
+
 	return nil
 }
 
@@ -466,10 +475,10 @@ func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSou
 //
 // The flags do not modify the behavior of this function directly, however they
 // are needed to pass along to checkBlockHeaderSanity.
-func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
+func checkBlockSanity(block *btcutil.Block, chainParams *chaincfg.Params, timeSource MedianTimeSource, flags BehaviorFlags) error {
 	msgBlock := block.MsgBlock()
 	header := &msgBlock.Header
-	err := checkBlockHeaderSanity(header, powLimit, timeSource, flags)
+	err := checkBlockHeaderSanity(header, chainParams.PowLimit, timeSource, flags)
 	if err != nil {
 		return err
 	}
@@ -570,13 +579,19 @@ func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource Median
 		}
 	}
 
+	// Peercoin checks
+	ppcErr := ppcCheckBlockSanity(chainParams, block)
+	if ppcErr != nil {
+		return ppcErr
+	}
+
 	return nil
 }
 
 // CheckBlockSanity performs some preliminary checks on a block to ensure it is
 // sane before continuing with block processing.  These checks are context free.
-func CheckBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource MedianTimeSource) error {
-	return checkBlockSanity(block, powLimit, timeSource, BFNone)
+func CheckBlockSanity(block *btcutil.Block, params *chaincfg.Params, timeSource MedianTimeSource) error {
+	return checkBlockSanity(block, params, timeSource, BFNone)
 }
 
 // ExtractCoinbaseHeight attempts to extract the height of the block from the
@@ -989,6 +1004,13 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	}
 	*/
 
+	// Peercoin checks
+	ppcErr := ppcCheckTransactionInputs(tx, utxoView,
+		totalSatoshiIn, totalSatoshiOut)
+	if ppcErr != nil {
+		return 0, ppcErr
+	}
+
 	// NOTE: bitcoind checks if the transaction fees are < 0 here, but that
 	// is an impossible condition because of the check above that ensures
 	// the inputs are >= the outputs.
@@ -1308,7 +1330,7 @@ func (b *BlockChain) CheckConnectBlockTemplate(block *btcutil.Block) error {
 		return ruleError(ErrPrevBlockNotBest, str)
 	}
 
-	err := checkBlockSanity(block, b.chainParams.PowLimit, b.timeSource, flags)
+	err := checkBlockSanity(block, b.chainParams, b.timeSource, flags)
 	if err != nil {
 		return err
 	}
