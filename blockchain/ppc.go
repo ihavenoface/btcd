@@ -321,7 +321,6 @@ func getCoinAgeTx(tx *btcutil.Tx, utxoView UtxoViewpoint) (uint64, error) {
 				err := fmt.Errorf("Transaction timestamp violation")
 				return 0, err // Transaction timestamp violation
 			}
-		//
 
 		// Read block header
 		// The desired block height is in the main chain, so look it up
@@ -449,15 +448,16 @@ func ppcNewBlockNode(
 }
 */
 func initBlockNodePPC(node *blockNode, blockHeader *wire.BlockHeader, parent *blockNode, blockMeta *wire.Meta) {
+	workSum := calcTrust(blockHeader.Bits, (blockMeta.Flags&FBlockProofOfStake) > 0)
 	*node = blockNode{
 		hash:       blockHeader.BlockHash(),
-		workSum:    CalcWork(blockHeader.Bits),
+		workSum:    workSum,
 		version:    blockHeader.Version,
 		bits:       blockHeader.Bits,
 		nonce:      blockHeader.Nonce,
 		timestamp:  blockHeader.Timestamp.Unix(),
 		merkleRoot: blockHeader.MerkleRoot,
-		meta:		blockMeta,
+		meta:       blockMeta,
 	}
 	if parent != nil {
 		node.parent = parent

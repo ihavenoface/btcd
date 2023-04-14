@@ -984,6 +984,14 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 				btcutil.MaxSatoshi)
 			return 0, ruleError(ErrBadTxOutValue, str)
 		}
+
+		/*
+			// Peercoin checks
+			ppcErr := ppcCheckTransactionInput(tx, txIn, utxo)
+			if ppcErr != nil {
+				return 0, ppcErr
+			}
+		*/
 	}
 
 	// Calculate the total output amount for this transaction.  It is safe
@@ -1004,17 +1012,26 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	}
 	*/
 
-	// Peercoin checks
-	ppcErr := ppcCheckTransactionInputs(tx, utxoView,
-		totalSatoshiIn, totalSatoshiOut)
-	if ppcErr != nil {
-		return 0, ppcErr
-	}
+	/*
+		// Peercoin checks
+		ppcErr := ppcCheckTransactionInputs(tx, utxoView, blockChain,
+			totalSatoshiIn, totalSatoshiOut)
+		if ppcErr != nil {
+			return 0, ppcErr
+		}
+	*/
 
 	// NOTE: bitcoind checks if the transaction fees are < 0 here, but that
 	// is an impossible condition because of the check above that ensures
 	// the inputs are >= the outputs.
 	txFeeInSatoshi := totalSatoshiIn - totalSatoshiOut
+	// TODO(kac-) how to handle it properly?
+	if IsCoinStake(tx) {
+		if txFeeInSatoshi < 0 {
+			return 0, nil
+		}
+		return txFeeInSatoshi, nil
+	}
 	return txFeeInSatoshi, nil
 }
 

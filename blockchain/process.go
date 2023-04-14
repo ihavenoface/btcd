@@ -164,6 +164,12 @@ func (b *BlockChain) ProcessBlock(block *btcutil.Block, flags BehaviorFlags) (bo
 		return false, false, ruleError(ErrDuplicateBlock, str)
 	}
 
+	// ppc: processing
+	ppcErr := b.ppcProcessBlock(block, phasePreSanity)
+	if ppcErr != nil {
+		return false, false, ppcErr
+	}
+
 	// Perform preliminary sanity checks on the block and its transactions.
 	err = checkBlockSanity(block, b.chainParams, b.timeSource, flags)
 	if err != nil {
@@ -191,6 +197,7 @@ func (b *BlockChain) ProcessBlock(block *btcutil.Block, flags BehaviorFlags) (bo
 			return false, false, ruleError(ErrCheckpointTimeTooOld, str)
 		}
 		if !fastAdd {
+			// todo ppc possibly disable
 			// Even though the checks prior to now have already ensured the
 			// proof of work exceeds the claimed amount, the claimed amount
 			// is a field in the block header which could be forged.  This
@@ -217,6 +224,11 @@ func (b *BlockChain) ProcessBlock(block *btcutil.Block, flags BehaviorFlags) (bo
 		return false, false, err
 	}
 	if !prevHashExists {
+		// ppc: processing
+		ppcErr := b.ppcProcessOrphan(block)
+		if ppcErr != nil {
+			return false, true, ppcErr
+		}
 		log.Infof("Adding orphan block %v with parent %v", blockHash, prevHash)
 		b.addOrphanBlock(block)
 

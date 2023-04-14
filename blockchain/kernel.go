@@ -426,9 +426,9 @@ func (b *BlockChain) getKernelStakeModifier(
 	//log.Debugf("getKernelStakeModifier : blockFrom = %v", hashBlockFrom)
 
 	nStakeModifier = 0
-	blockFrom, metaFrom, fetchErr := b.HeaderByHashPPC(hashBlockFrom) // todo ppc verify we're fetching meta properly
-	if fetchErr != nil {
-		err = fmt.Errorf("getKernelStakeModifier() : block not found (%v)", fetchErr)
+	blockFrom := b.index.LookupNode(hashBlockFrom)
+	if blockFrom == nil {
+		err = fmt.Errorf("getKernelStakeModifier() : block not found (%v)", hashBlockFrom)
 		return
 	}
 	blockFromHeight, fetchErr := b.BlockHeightByHash(hashBlockFrom)
@@ -437,12 +437,12 @@ func (b *BlockChain) getKernelStakeModifier(
 		return
 	}
 	nStakeModifierHeight = blockFromHeight
-	blockFromTimestamp := blockFrom.Timestamp.Unix()
+	blockFromTimestamp := blockFrom.Header().Timestamp.Unix()
 	nStakeModifierTime = blockFromTimestamp
 	nStakeModifierSelectionInterval := getStakeModifierSelectionInterval(b.chainParams)
-	block := blockFrom
+	block := blockFrom.Header()
 	blockHeight := blockFromHeight
-	meta := metaFrom
+	meta := blockFrom.meta
 	var blockHash *chainhash.Hash
 	// loop to find the stake modifier later by a selection interval
 	for nStakeModifierTime < (blockFromTimestamp + nStakeModifierSelectionInterval) {
@@ -455,6 +455,7 @@ func (b *BlockChain) getKernelStakeModifier(
 			}
 			return
 		}
+		// todo this can be dumbed down
 		blockHash, err = b.BlockHashByHeight(blockHeight + 1)
 		if err != nil {
 			return
@@ -463,8 +464,14 @@ func (b *BlockChain) getKernelStakeModifier(
 		if err != nil {
 			return
 		}
+		// todo ppc possibly read meta from disk
+		node := b.index.LookupNode(blockHash)
+		if node == nil {
+			return
+		}
+		meta = node.meta
 		blockHeight++
-		if isGeneratedStakeModifier(&meta) {
+		if isGeneratedStakeModifier(meta) {
 			nStakeModifierHeight = blockHeight
 			nStakeModifierTime = block.Timestamp.Unix()
 		}
@@ -512,6 +519,7 @@ func (b *BlockChain) checkStakeKernelHash(
 		return
 	}
 
+	// todo ppc
 	// 1346126538
 	// 1346140595
 

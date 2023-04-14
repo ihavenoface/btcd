@@ -43,7 +43,7 @@ type TxLoc struct {
 type MsgBlock struct {
 	Header       BlockHeader
 	Transactions []*MsgTx
-	Signature    []byte // todo ppc unused
+	Signature    []byte
 }
 
 // AddTransaction adds a transaction to the message.
