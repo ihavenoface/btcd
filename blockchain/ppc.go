@@ -646,10 +646,14 @@ func CheckBlockSignature(msgBlock *wire.MsgBlock,
 	return sig.Verify(sha[:], a.PubKey())
 }
 
+func IsZeroAllowed(nTimeTx int64) bool {
+	return nTimeTx >= 1447700000 // very crude approximation to prevent linking with kernel.cpp
+}
+
 // Peercoin additional context free transaction checks.
 // Basing on CTransaction::CheckTransaction().
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L445
-func ppcCheckTransactionSanity(tx *btcutil.Tx) error {
+func ppcCheckTransactionSanity(tx *btcutil.Tx) error { // todo ppc add more rules where needed
 	msgTx := tx.MsgTx()
 	for _, txOut := range msgTx.TxOut {
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L461
@@ -664,7 +668,8 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error {
 		// ppc: enforce minimum output amount
 		// if ((!txout.IsEmpty()) && txout.nValue < MIN_TXOUT_AMOUNT)
 		// 	return DoS(100, error("CTransaction::CheckTransaction() : txout.nValue below minimum"));
-		if (!txOut.IsEmpty()) && txOut.Value < MinTxOutAmount {
+		if (!txOut.IsEmpty()) && txOut.Value < MinTxOutAmount &&
+			(msgTx.Version < 3 && !(IsZeroAllowed(msgTx.Timestamp.Unix()) && (txOut.Value == 0))) {
 			str := fmt.Sprintf("transaction output value of %v is below minimum %v",
 				txOut.Value, MinTxOutAmount)
 			return ruleError(ErrBadTxOutValue, str)
@@ -858,12 +863,14 @@ func GetLastBlockHeader(db database.Db, lastSha *chainhash.Hash, proofOfStake bo
 }
 */
 
+/* todo ppc -> netsync
 // GetKernelStakeModifier
 // This function is NOT safe for concurrent access. Use blockmanager.
 func (b *BlockChain) GetKernelStakeModifier(hash *chainhash.Hash, timeSource MedianTimeSource) (uint64, error) {
 	stakeModifier, _, _, err := b.getKernelStakeModifier(hash, timeSource, false)
 	return stakeModifier, err
 }
+*/
 
 // WantedOrphan finds block wanted by given orphan block
 //

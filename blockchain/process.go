@@ -227,6 +227,7 @@ func (b *BlockChain) ProcessBlock(block *btcutil.Block, flags BehaviorFlags) (bo
 		// ppc: processing
 		ppcErr := b.ppcProcessOrphan(block)
 		if ppcErr != nil {
+			// todo ppc check return
 			return false, true, ppcErr
 		}
 		log.Infof("Adding orphan block %v with parent %v", blockHash, prevHash)

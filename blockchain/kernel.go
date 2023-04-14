@@ -414,9 +414,111 @@ func (b *BlockChain) addToBlockIndex(block *btcutil.Block) (err error) {
 	return nil
 }
 
+//CBlockIndex* pindexPrev, unsigned int nTimeTx, uint64_t& nStakeModifier, int& nStakeModifierHeight, int64_t& nStakeModifierTime, bool fPrintProofOfStake
+func (b *BlockChain) getKernelStakeModifierV05(hashBlockFrom *chainhash.Hash, nTimeTx int64, fPrintProofOfStake bool) (
+	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
+	err error) {
+	/*
+	   const Consensus::Params& params = Params().GetConsensus();
+	   const CBlockIndex* pindex = pindexPrev;
+	   nStakeModifierHeight = pindex->nHeight;
+	   nStakeModifierTime = pindex->GetBlockTime();
+	   int64_t nStakeModifierSelectionInterval = GetStakeModifierSelectionInterval();
+
+	   if (nStakeModifierTime + params.nStakeMinAge - nStakeModifierSelectionInterval <= (int64_t) nTimeTx)
+	   {
+	       // Best block is still more than
+	       // (nStakeMinAge minus a selection interval) older than kernel timestamp
+	       if (fPrintProofOfStake)
+	           return error("GetKernelStakeModifier() : best block %s at height %d too old for stake",
+	               pindex->GetBlockHash().ToString(), pindex->nHeight);
+	       else
+	           return false;
+	   }
+	   // loop to find the stake modifier earlier by
+	   // (nStakeMinAge minus a selection interval)
+	   while (nStakeModifierTime + params.nStakeMinAge - nStakeModifierSelectionInterval >(int64_t) nTimeTx)
+	   {
+	       if (!pindex->pprev)
+	       {   // reached genesis block; should not happen
+	           return error("GetKernelStakeModifier() : reached genesis block");
+	       }
+	       pindex = pindex->pprev;
+	       if (pindex->GeneratedStakeModifier())
+	       {
+	           nStakeModifierHeight = pindex->nHeight;
+	           nStakeModifierTime = pindex->GetBlockTime();
+	       }
+	   }
+	   nStakeModifier = pindex->nStakeModifier;
+	   return true;
+	*/
+	nStakeModifier = 0
+	blockFrom := b.bestChain.Tip() // todo ppc check if this makes sense
+	blockFromHeight := blockFrom.height
+	// todo ppc
+	/*if blockFrom == nil {
+		err = fmt.Errorf("getKernelStakeModifier() : block not found (%v)", hashBlockFrom)
+		return
+	}
+	blockFromHeight, fetchErr := b.BlockHeightByHash(hashBlockFrom)
+	if fetchErr != nil {
+		err = fmt.Errorf("getKernelStakeModifier() : block height not found (%v)", fetchErr)
+		return
+	}*/
+	nStakeModifierHeight = blockFromHeight
+	nStakeModifierTime = blockFrom.Header().Timestamp.Unix()
+	nStakeModifierSelectionInterval := getStakeModifierSelectionInterval(b.chainParams)
+
+	block := blockFrom.Header()
+	blockHeight := blockFromHeight
+	meta := blockFrom.meta
+
+	var blockHash *chainhash.Hash
+	if (nStakeModifierTime + b.chainParams.StakeMinAge - nStakeModifierSelectionInterval) <= nTimeTx {
+		// Best block is still more than
+		// (nStakeMinAge minus a selection interval) older than kernel timestamp
+		if fPrintProofOfStake {
+			err = fmt.Errorf("GetKernelStakeModifier() : best block %v at height %v too old for stake",
+				hashBlockFrom, blockFromHeight)
+			return
+		} else {
+			return
+		}
+	}
+
+	// loop to find the stake modifier earlier by
+	// (nStakeMinAge minus a selection interval)
+	for (nStakeModifierTime + b.chainParams.StakeMinAge - nStakeModifierSelectionInterval) > nTimeTx {
+		// todo ppc genesis test
+		// todo this can be dumbed down
+		blockHash, err = b.BlockHashByHeight(blockHeight)
+		if err != nil {
+			return
+		}
+		block, err = b.HeaderByHash(blockHash)
+		if err != nil {
+			return
+		}
+		// todo ppc possibly read meta from disk
+		node := b.index.LookupNode(blockHash)
+		if node == nil {
+			return
+		}
+		meta = node.meta
+		blockHeight--
+		if isGeneratedStakeModifier(meta) {
+			nStakeModifierHeight = node.height
+			nStakeModifierTime = block.Timestamp.Unix()
+		}
+	}
+	nStakeModifier = meta.StakeModifier
+	return
+}
+
 // The stake modifier used to hash for a stake kernel is chosen as the stake
 // modifier about a selection interval later than the coin generating the kernel
-func (b *BlockChain) getKernelStakeModifier(
+func (b *BlockChain) getKernelStakeModifier03(
 	hashBlockFrom *chainhash.Hash, timeSource MedianTimeSource, fPrintProofOfStake bool) (
 	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
 	err error) {
@@ -477,6 +579,18 @@ func (b *BlockChain) getKernelStakeModifier(
 		}
 	}
 	nStakeModifier = meta.StakeModifier
+	return
+}
+
+func (b *BlockChain) getKernelStakeModifier(
+	hashBlockFrom *chainhash.Hash, timeSource MedianTimeSource, nTimeTx int64, fPrintProofOfStake bool) (
+	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
+	err error) {
+	if isProtocolV05(b, nTimeTx) {
+		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifierV05(hashBlockFrom, nTimeTx, fPrintProofOfStake)
+	} else {
+		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifier03(hashBlockFrom, timeSource, fPrintProofOfStake)
+	}
 	return
 }
 
@@ -565,8 +679,9 @@ func (b *BlockChain) checkStakeKernelHash(
 	if isProtocolV03(b, nTimeTx) { // v0.3 protocol
 		var blockFromHash *chainhash.Hash
 		blockFromHash = blockFrom.Hash()
+		// todo ppc
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err =
-			b.getKernelStakeModifier(blockFromHash, timeSource, fPrintProofOfStake)
+			b.getKernelStakeModifier(blockFromHash, timeSource, nTimeTx, fPrintProofOfStake)
 		if err != nil {
 			return
 		}
@@ -578,7 +693,7 @@ func (b *BlockChain) checkStakeKernelHash(
 		}
 	} else { // v0.2 protocol
 		//ss << nBits;
-		err = writeElement(buf, uint32(nBits))
+		err = writeElement(buf, nBits)
 		bufSize += 4
 		if err != nil {
 			return
@@ -623,6 +738,7 @@ func (b *BlockChain) checkStakeKernelHash(
 
 	if fPrintProofOfStake {
 		if isProtocolV03(b, nTimeTx) {
+			// todo ppc update log v05
 			log.Debugf("checkStakeKernelHash() : using modifier %d at height=%d timestamp=%s for block from height=%d timestamp=%s",
 				nStakeModifier, nStakeModifierHeight,
 				dateTimeStrFormat(nStakeModifierTime), blockFrom.Height(),
@@ -630,6 +746,7 @@ func (b *BlockChain) checkStakeKernelHash(
 		}
 		var ver string
 		var modifier uint64
+		// todo ppc update log v05
 		if isProtocolV03(b, nTimeTx) {
 			ver = "0.3"
 			modifier = nStakeModifier
@@ -637,6 +754,7 @@ func (b *BlockChain) checkStakeKernelHash(
 			ver = "0.2"
 			modifier = uint64(nBits)
 		}
+		// todo ppc update log v05
 		log.Debugf("checkStakeKernelHash() : check protocol=%s modifier=%d nBits=%d nTimeBlockFrom=%d nTxPrevOffset=%d nTimeTxPrev=%d nPrevout=%d nTimeTx=%d hashProof=%s",
 			ver, modifier, nBits, nTimeBlockFrom, nTxPrevOffset, txMsgPrev.Timestamp.Unix(),
 			prevout.Index, nTimeTx, hashProofOfStake.String())

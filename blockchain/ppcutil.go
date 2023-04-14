@@ -27,6 +27,10 @@ const (
 	//       re-download of blockchain is required. The timestamp of upgrade
 	//       is recorded in transaction database to alert user of the requirement.
 	nProtocolV04UpgradeTime int64 = 0
+
+	// Protocol switch time of v0.5 kernel protocol
+	nProtocolV05SwitchTime     int64 = 1461700000
+	nProtocolV05TestSwitchTime int64 = 1447700000
 )
 
 /*
@@ -117,6 +121,16 @@ func isProtocolV04(b *BlockChain, nTime int64) bool {
 		v04SwitchTime = nProtocolV04SwitchTime
 	}
 	return nTime >= v04SwitchTime
+}
+
+func isProtocolV05(b *BlockChain, nTime int64) bool {
+	var v05SwitchTime int64
+	if b.chainParams.Name == "testnet3" {
+		v05SwitchTime = nProtocolV05TestSwitchTime
+	} else {
+		v05SwitchTime = nProtocolV05SwitchTime
+	}
+	return nTime >= v05SwitchTime
 }
 
 // dateTimeStrFormat displays time in RFC3339 format
