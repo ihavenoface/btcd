@@ -1024,6 +1024,31 @@ func (b *BlockChain) checkStakeModifierCheckpoints(
 	return true
 }
 
+func IsSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) bool {
+	// todo ppc check if mainnet (900) works as expected
+	numFound := uint64(0)
+	iterNode := pstart
+	for i := uint64(0); i < nToCheck &&
+		numFound < nRequired && iterNode != nil; i++ {
+		// This node has a version that is at least the minimum version.
+		if iterNode.version >= minVersion {
+			numFound++
+		}
+
+		// Get the previous block node.  This function is used over
+		// simply accessing iterNode.parent directly as it will
+		// dynamically create previous block nodes as needed.  This
+		// helps allow only the pieces of the chain that are needed
+		// to remain in memory.
+		iterNode = b.index.LookupNode(&iterNode.parent.hash)
+		if iterNode == nil {
+			break
+		}
+	}
+
+	return numFound >= nRequired
+}
+
 // todo ppc check if we can attach to blockchain like this
 func (b *BlockChain) verifySignature(utxoView *UtxoViewpoint, txIn *wire.TxIn, tx *btcutil.Tx,
 	nIn uint32, fValidatePayToScriptHash bool, nHashType int) error {

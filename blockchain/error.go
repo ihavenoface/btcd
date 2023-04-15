@@ -266,6 +266,9 @@ const (
 	// was already used and block was rejected to prevent block-flood
 	// attack.
 	ErrDuplicateStake
+
+	// ErrInvalidHeader indicates invalid proof of work or time too old.
+	ErrInvalidHeader
 )
 
 // Map of ErrorCode values back to their constant names for pretty printing.
@@ -326,6 +329,7 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrBlockBeforeTx:          "ErrBlockBeforeTx",
 	ErrBadBlockSignature:      "ErrBadBlockSignature",
 	ErrDuplicateStake:         "ErrDuplicateStake",
+	ErrInvalidHeader:          "ErrInvalidHeader",
 }
 
 // String returns the ErrorCode as a human-readable name.

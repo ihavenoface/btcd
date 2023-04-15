@@ -752,10 +752,10 @@ func ppcCheckBlockSanity(chainParams *chaincfg.Params, block *btcutil.Block) err
 		}
 	}
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1858
-	// ppc: coinbase output should be empty if proof-of-stake block
-	// if (IsProofOfStake() && (vtx[0].vout.size() != 1 || !vtx[0].vout[0].IsEmpty()))
-	// 	return error("CheckBlock() : coinbase output not empty for proof-of-stake block");
-	if block.IsProofOfStake() && (len(msgBlock.Transactions[0].TxOut) != 1 || !msgBlock.Transactions[0].TxOut[0].IsEmpty()) {
+	// peercoin: first coinbase output should be empty if proof-of-stake block
+	// if (block.IsProofOfStake() && !block.vtx[0]->vout[0].IsEmpty())
+	//    return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-notempty", "coinbase output not empty in PoS block");
+	if block.IsProofOfStake() && !msgBlock.Transactions[0].TxOut[0].IsEmpty() {
 		str := "coinbase output not empty for proof-of-stake block"
 		return ruleError(ErrCoinbaseNotEmpty, str)
 	}

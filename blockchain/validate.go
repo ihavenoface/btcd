@@ -5,6 +5,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -733,6 +734,17 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 	}
 	*/
 
+	// Reject outdated version blocks when 95% (75% on testnet) of the network has upgraded:
+	// check for version 2, 3 and 4 upgrades
+	// if(block.nVersion < 2 && IsProtocolV06(pindexPrev))
+	//        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, strprintf("bad-version(0x%08x)", block.nVersion),
+	//                             strprintf("rejected nVersion=0x%08x block", block.nVersion));
+	// todo ppc verify
+	if header.Version < 2 && IsProtocolV06(b, prevNode) {
+		str := fmt.Sprintf("bad block version=%s at height %d", header.Version, blockHeight)
+		return ruleError(ErrInvalidHeader, str)
+	}
+
 	return nil
 }
 
@@ -804,6 +816,26 @@ func (b *BlockChain) checkBlockContext(block *btcutil.Block, prevNode *blockNode
 				str := fmt.Sprintf("block contains unfinalized "+
 					"transaction %v", tx.Hash())
 				return ruleError(ErrUnfinalizedTx, str)
+			}
+		}
+
+		// Enforce rule that the coinbase starts with serialized block height
+		// if (pindexPrev && IsProtocolV06(pindexPrev) && block.nVersion >= 2)
+		// {
+		//     CScript expect = CScript() << nHeight;
+		//     if (block.vtx[0]->vin[0].scriptSig.size() < expect.size() ||
+		//         !std::equal(expect.begin(), expect.end(), block.vtx[0]->vin[0].scriptSig.begin())) {
+		//         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-height", "block height mismatch in coinbase");
+		//     }
+		// }
+		if prevNode != nil && IsProtocolV06(b, prevNode) && block.MsgBlock().Header.Version >= 2 {
+			expect, err := txscript.NewScriptBuilder().AddInt64(int64(blockHeight)).Script()
+			if err != nil {
+				return err
+			}
+			var sigScript = block.Transactions()[0].MsgTx().TxIn[0].SignatureScript
+			if len(sigScript) < len(expect) || !bytes.Equal(expect, sigScript[:len(expect)]) {
+				return ruleError(1, "todo ppc block height mismatch in coinbase")
 			}
 		}
 
