@@ -678,11 +678,11 @@ var TestNet3Params = Params{
 	CoinbaseMaturity:      60,
 	InitialHashTargetBits: 0x1d07ffff,
 	ModifierInterval:      60 * 20, // test net modifier interval is 20 minutes
-	// todo ppc currently unused for testnet
+	// todo ppc looks about right
 	StakeModifierCheckpoints: map[int32]uint32{
 		0:     uint32(0x0e00670b),
 		1:     uint32(0xbc4b99b6),
-		401:   uint32(0x1d084ed3),
+		401:   uint32(0xd11e2638),
 		19080: uint32(0x3711dc3a),
 		30583: uint32(0xb480fade),
 		99999: uint32(0x9a62eaec),

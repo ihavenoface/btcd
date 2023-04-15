@@ -175,7 +175,7 @@ func IsProtocolV06(b *BlockChain, pindexPrev *blockNode) bool {
 }
 
 // Whether a given transaction is subject to new v0.7 protocol
-func isProtocolV07(b *BlockChain, nTime int64) bool {
+func IsProtocolV07(b *BlockChain, nTime int64) bool {
 	var v07SwitchTime int64
 	if b.chainParams.Name == "testnet3" {
 		v07SwitchTime = nProtocolV07TestSwitchTime
@@ -188,7 +188,7 @@ func isProtocolV07(b *BlockChain, nTime int64) bool {
 // todo ppc IsBTC16BIPsEnabled()
 
 // Whether a given transaction is subject to new v0.9 protocol
-func isProtocolV09(b *BlockChain, nTime int64) bool {
+func IsProtocolV09(b *BlockChain, nTime int64) bool {
 	var v09SwitchTime int64
 	if b.chainParams.Name == "testnet3" {
 		v09SwitchTime = nProtocolV09TestSwitchTime
@@ -199,7 +199,7 @@ func isProtocolV09(b *BlockChain, nTime int64) bool {
 }
 
 // Whether a given timestamp is subject to new v10 protocol
-func isProtocolV10(b *BlockChain, nTime int64) bool {
+func IsProtocolV10(b *BlockChain, nTime int64) bool {
 	var v10SwitchTime int64
 	if b.chainParams.Name == "testnet3" {
 		v10SwitchTime = nProtocolV10TestSwitchTime

@@ -243,7 +243,7 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 		}
 	*/
 	// todo ppc
-	if pindexPrev.height == 0 {
+	if pindexPrev == nil {
 		fGeneratedStakeModifier = true
 		return // genesis block's modifier is 0
 	}
@@ -285,8 +285,7 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	nSelectionIntervalStart := (pindexPrev.timestamp/b.chainParams.ModifierInterval)*b.chainParams.ModifierInterval - nSelectionInterval
 	log.Debugf("computeNextStakeModifier: nSelectionInterval = %d, nSelectionIntervalStart = %s[%d]", nSelectionInterval, dateTimeStrFormat(nSelectionIntervalStart), nSelectionIntervalStart)
 	pindex := pindexPrev
-	// todo ppc deviating a bit by checking for parent here. verify that's ok
-	for pindex != nil && pindex.parent != nil && (pindex.timestamp >= nSelectionIntervalStart) {
+	for pindex != nil && (pindex.timestamp >= nSelectionIntervalStart) {
 		vSortedByTimestamp = append(vSortedByTimestamp,
 			blockTimeHash{pindex.timestamp, &pindex.hash})
 		pindex = b.index.LookupNode(&pindex.parent.hash)
@@ -405,12 +404,11 @@ func (b *BlockChain) addToBlockIndex(block *btcutil.Block) (err error) {
 		err = errors.New("addToBlockIndex() : getStakeModifierChecksum() failed")
 		return
 	}
-	/* todo ppc
+	// todo ppc
 	if !b.checkStakeModifierCheckpoints(block.Height(), meta.StakeModifierChecksum) {
 		err = fmt.Errorf("addToBlockIndex() : Rejected by stake modifier checkpoint height=%d, modifier=%d", block.Height(), meta.StakeModifier)
 		return
 	}
-	*/
 
 	return nil
 }
