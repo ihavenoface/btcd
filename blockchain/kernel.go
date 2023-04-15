@@ -285,7 +285,8 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	nSelectionIntervalStart := (pindexPrev.timestamp/b.chainParams.ModifierInterval)*b.chainParams.ModifierInterval - nSelectionInterval
 	log.Debugf("computeNextStakeModifier: nSelectionInterval = %d, nSelectionIntervalStart = %s[%d]", nSelectionInterval, dateTimeStrFormat(nSelectionIntervalStart), nSelectionIntervalStart)
 	pindex := pindexPrev
-	for pindex != nil && (pindex.timestamp >= nSelectionIntervalStart) {
+	// todo ppc deviating a bit by checking for parent here. verify that's ok
+	for pindex != nil && pindex.parent != nil && (pindex.timestamp >= nSelectionIntervalStart) {
 		vSortedByTimestamp = append(vSortedByTimestamp,
 			blockTimeHash{pindex.timestamp, &pindex.hash})
 		pindex = b.index.LookupNode(&pindex.parent.hash)

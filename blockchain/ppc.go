@@ -139,7 +139,7 @@ func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (bloc
 // Peercoin https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L902
 func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfStake bool) (uint32, error) {
 
-	if lastNode.hash.IsEqual(b.chainParams.GenesisHash) { // todo ppc
+	if lastNode == nil { // todo ppc
 		return b.chainParams.PowLimitBits, nil // genesis block
 	}
 
