@@ -957,7 +957,8 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 			if err != nil {
 				return err
 			}
-			err = view.connectTransactions(block, nil)
+			var timestamp time.Time // todo ppc
+			err = view.connectTransactions(block, timestamp, nil)
 			if err != nil {
 				return err
 			}
@@ -1042,7 +1043,8 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		// to it.  Also, provide an stxo slice so the spent txout
 		// details are generated.
 		stxos := make([]SpentTxOut, 0, countSpentOutputs(block))
-		err = view.connectTransactions(block, &stxos)
+		var timestamp time.Time // todo ppc
+		err = view.connectTransactions(block, timestamp, &stxos)
 		if err != nil {
 			return err
 		}
@@ -1135,7 +1137,8 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *btcutil.Block, fla
 			if err != nil {
 				return false, err
 			}
-			err = view.connectTransactions(block, &stxos)
+			var timestamp time.Time // todo ppc
+			err = view.connectTransactions(block, timestamp, &stxos)
 			if err != nil {
 				return false, err
 			}

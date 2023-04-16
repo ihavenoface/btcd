@@ -800,7 +800,7 @@ func (mp *TxPool) fetchInputUtxos(tx *btcutil.Tx) (*blockchain.UtxoViewpoint, er
 			// AddTxOut ignores out of range index values, so it is
 			// safe to call without bounds checking here.
 			utxoView.AddTxOut(poolTxDesc.Tx, prevOut.Index,
-				mining.UnminedHeight)
+				mining.UnminedHeight, tx.MsgTx().Timestamp) // todo ppc update for v3
 		}
 	}
 

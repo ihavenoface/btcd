@@ -252,6 +252,8 @@ type SpentTxOut struct {
 	// Height is the height of the the block containing the creating tx.
 	Height int32
 
+	Timestamp time.Time
+
 	// Denotes if the creating tx is a coinbase.
 	IsCoinBase bool
 
@@ -656,14 +658,16 @@ func serializeUtxoEntry(entry *UtxoEntry) ([]byte, error) {
 
 	// Calculate the size needed to serialize the entry.
 	size := serializeSizeVLQ(headerCode) +
-		compressedTxOutSize(uint64(entry.Amount()), entry.PkScript())
+		compressedTxOutSize(uint64(entry.Amount()), entry.PkScript()) +
+		serializeSizeVLQ(uint64(entry.Timestamp().Unix()))
 
 	// Serialize the header code followed by the compressed unspent
-	// transaction output.
+	// transaction output and the timestamp.
 	serialized := make([]byte, size)
 	offset := putVLQ(serialized, headerCode)
 	offset += putCompressedTxOut(serialized[offset:], uint64(entry.Amount()),
 		entry.PkScript())
+	offset += putVLQ(serialized[offset:], uint64(entry.Timestamp().Unix()))
 
 	return serialized, nil
 }
@@ -694,11 +698,20 @@ func deserializeUtxoEntry(serialized []byte) (*UtxoEntry, error) {
 			"utxo: %v", err))
 	}
 
+	// Decode the timestamp.
+	timestampCode, timestampOffset := deserializeVLQ(serialized[offset+compressedTxOutSize(amount, pkScript):])
+	if timestampOffset >= len(serialized) {
+		return nil, errDeserialize(fmt.Sprintf("unexpected end of data after timestamp"+
+			"utxo: %v", err))
+	}
+	timestamp := time.Unix(int64(timestampCode), 0)
+
 	entry := &UtxoEntry{
 		amount:      int64(amount),
 		pkScript:    pkScript,
 		blockHeight: blockHeight,
 		packedFlags: 0,
+		timestamp:   timestamp,
 	}
 	if isCoinBase {
 		entry.packedFlags |= tfCoinBase

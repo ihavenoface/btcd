@@ -1222,7 +1222,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 		// provably unspendable as available utxos.  Also, the passed
 		// spent txos slice is updated to contain an entry for each
 		// spent txout in the order each transaction spends them.
-		err = view.connectTransaction(tx, node.height, stxos)
+		err = view.connectTransaction(tx, node.height, tx.MsgTx().Timestamp, stxos) // todo ppc update for v3
 		if err != nil {
 			return err
 		}

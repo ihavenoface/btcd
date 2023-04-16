@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcd/btcutil"
 )
 
 const (
@@ -297,7 +297,8 @@ func spendTransaction(utxoView *blockchain.UtxoViewpoint, tx *btcutil.Tx, height
 		}
 	}
 
-	utxoView.AddTxOuts(tx, height)
+	var timestamp time.Time // todo ppc
+	utxoView.AddTxOuts(tx, height, timestamp)
 	return nil
 }
 
