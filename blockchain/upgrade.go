@@ -355,14 +355,16 @@ func deserializeUtxoEntryV0(serialized []byte) (map[uint32]*UtxoEntry, error) {
 	// Decode the header code.
 	//
 	// Bit 0 indicates whether the containing transaction is a coinbase.
-	// Bit 1 indicates output 0 is unspent.
-	// Bit 2 indicates output 1 is unspent.
-	// Bits 3-x encodes the number of non-zero unspentness bitmap bytes that
+	// Bit 1 indicates whether the containing transaction is a coinstake.
+	// Bit 2 indicates output 0 is unspent.
+	// Bit 3 indicates output 1 is unspent.
+	// Bits 4-x encodes the number of non-zero unspentness bitmap bytes that
 	// follow.  When both output 0 and 1 are spent, it encodes N-1.
 	isCoinBase := code&0x01 != 0
-	output0Unspent := code&0x02 != 0
-	output1Unspent := code&0x04 != 0
-	numBitmapBytes := code >> 3
+	isCoinStake := code&0x02 != 0
+	output0Unspent := code&0x04 != 0
+	output1Unspent := code&0x08 != 0
+	numBitmapBytes := code >> 4
 	if !output0Unspent && !output1Unspent {
 		numBitmapBytes++
 	}
@@ -408,6 +410,9 @@ func deserializeUtxoEntryV0(serialized []byte) (map[uint32]*UtxoEntry, error) {
 	var packedFlags txoFlags
 	if isCoinBase {
 		packedFlags |= tfCoinBase
+	}
+	if isCoinStake {
+		packedFlags |= tfCoinStake
 	}
 
 	// Decode and add all of the utxos.

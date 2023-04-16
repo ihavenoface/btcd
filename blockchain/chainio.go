@@ -254,6 +254,8 @@ type SpentTxOut struct {
 
 	// Denotes if the creating tx is a coinbase.
 	IsCoinBase bool
+
+	IsCoinStake bool
 }
 
 // FetchSpendJournal attempts to retrieve the spend journal, or the set of
@@ -286,9 +288,12 @@ func spentTxOutHeaderCode(stxo *SpentTxOut) uint64 {
 	// As described in the serialization format comments, the header code
 	// encodes the height shifted over one bit and the coinbase flag in the
 	// lowest bit.
-	headerCode := uint64(stxo.Height) << 1
+	headerCode := uint64(stxo.Height) << 2
 	if stxo.IsCoinBase {
 		headerCode |= 0x01
+	}
+	if stxo.IsCoinStake {
+		headerCode |= 0x02
 	}
 
 	return headerCode
@@ -343,9 +348,11 @@ func decodeSpentTxOut(serialized []byte, stxo *SpentTxOut) (int, error) {
 	// Decode the header code.
 	//
 	// Bit 0 indicates containing transaction is a coinbase.
-	// Bits 1-x encode height of containing transaction.
+	// Bit 1 indicates containing transaction is a coinstake.
+	// Bits 2-x encode height of containing transaction.
 	stxo.IsCoinBase = code&0x01 != 0
-	stxo.Height = int32(code >> 1)
+	stxo.IsCoinStake = code&0x02 != 0
+	stxo.Height = int32(code >> 2)
 	if stxo.Height > 0 {
 		// The legacy v1 spend journal format conditionally tracked the
 		// containing transaction version when the height was non-zero,
@@ -622,9 +629,12 @@ func utxoEntryHeaderCode(entry *UtxoEntry) (uint64, error) {
 	// As described in the serialization format comments, the header code
 	// encodes the height shifted over one bit and the coinbase flag in the
 	// lowest bit.
-	headerCode := uint64(entry.BlockHeight()) << 1
+	headerCode := uint64(entry.BlockHeight()) << 2
 	if entry.IsCoinBase() {
 		headerCode |= 0x01
+	}
+	if entry.IsCoinStake() {
+		headerCode |= 0x02
 	}
 
 	return headerCode, nil
@@ -671,9 +681,11 @@ func deserializeUtxoEntry(serialized []byte) (*UtxoEntry, error) {
 	// Decode the header code.
 	//
 	// Bit 0 indicates whether the containing transaction is a coinbase.
-	// Bits 1-x encode height of containing transaction.
+	// Bit 1 indicates whether the containing transaction is a coinstake.
+	// Bits 2-x encode height of containing transaction.
 	isCoinBase := code&0x01 != 0
-	blockHeight := int32(code >> 1)
+	isCoinStake := code&0x02 != 0
+	blockHeight := int32(code >> 2)
 
 	// Decode the compressed unspent transaction output.
 	amount, pkScript, _, err := decodeCompressedTxOut(serialized[offset:])
@@ -690,6 +702,9 @@ func deserializeUtxoEntry(serialized []byte) (*UtxoEntry, error) {
 	}
 	if isCoinBase {
 		entry.packedFlags |= tfCoinBase
+	}
+	if isCoinStake {
+		entry.packedFlags |= tfCoinStake
 	}
 
 	return entry, nil
