@@ -204,7 +204,6 @@ func CalcBlockSubsidy(height int32, chainParams *chaincfg.Params) int64 {
 // CheckTransactionSanity performs some preliminary checks on a transaction to
 // ensure it is sane.  These checks are context free.
 func CheckTransactionSanity(tx *btcutil.Tx) error {
-	return nil // todo ppc
 	// A transaction must have at least one input.
 	msgTx := tx.MsgTx()
 	if len(msgTx.TxIn) == 0 {
@@ -524,8 +523,6 @@ func checkBlockSanity(block *btcutil.Block, chainParams *chaincfg.Params, timeSo
 		}
 	}
 
-	return nil // todo ppc
-
 	// Do some preliminary checks on each transaction to ensure they are
 	// sane before continuing.
 	for _, tx := range transactions {
@@ -662,7 +659,6 @@ func checkSerializedHeight(coinbaseTx *btcutil.Tx, wantHeight int32) error {
 //
 // This function MUST be called with the chain state lock held (for writes).
 func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode *blockNode, flags BehaviorFlags) error {
-	return nil // todo ppc
 	fastAdd := flags&BFFastAdd == BFFastAdd
 	if !fastAdd {
 		// Ensure the difficulty specified in the block header matches
@@ -968,7 +964,7 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 
 		// Ensure the transaction is not spending coins which have not
 		// yet reached the required coinbase maturity.
-		if utxo.IsCoinBase() {
+		if utxo.IsCoinBase() || utxo.IsCoinStake() {
 			originHeight := utxo.BlockHeight()
 			blocksSincePrev := txHeight - originHeight
 			coinbaseMaturity := int32(chainParams.CoinbaseMaturity)
@@ -1017,13 +1013,11 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 			return 0, ruleError(ErrBadTxOutValue, str)
 		}
 
-		/*
-			// Peercoin checks
-			ppcErr := ppcCheckTransactionInput(tx, txIn, utxo)
-			if ppcErr != nil {
-				return 0, ppcErr
-			}
-		*/
+		// Peercoin checks
+		ppcErr := ppcCheckTransactionInput(tx, txIn, utxo)
+		if ppcErr != nil {
+			return 0, ppcErr
+		}
 	}
 
 	// Calculate the total output amount for this transaction.  It is safe
@@ -1035,23 +1029,19 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	}
 
 	// Ensure the transaction does not spend more than its inputs.
-	/* todo ppc
-	if totalSatoshiIn < totalSatoshiOut {
+	if !IsCoinStake(tx) && totalSatoshiIn < totalSatoshiOut {
 		str := fmt.Sprintf("total value of all transaction inputs for "+
 			"transaction %v is %v which is less than the amount "+
 			"spent of %v", tx.Hash(), totalSatoshiIn, totalSatoshiOut)
 		return 0, ruleError(ErrSpendTooHigh, str)
 	}
-	*/
 
-	/*
-		// Peercoin checks
-		ppcErr := ppcCheckTransactionInputs(tx, utxoView, blockChain,
-			totalSatoshiIn, totalSatoshiOut)
-		if ppcErr != nil {
-			return 0, ppcErr
-		}
-	*/
+	// Peercoin checks
+	ppcErr := ppcCheckTransactionInputs(tx, utxoView,
+		totalSatoshiIn, totalSatoshiOut, chainParams)
+	if ppcErr != nil {
+		return 0, ppcErr
+	}
 
 	// NOTE: bitcoind checks if the transaction fees are < 0 here, but that
 	// is an impossible condition because of the check above that ensures
@@ -1199,9 +1189,8 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	// against all the inputs when the signature operations are out of
 	// bounds.
 	// todo ppc
-	// var totalFees int64
+	var totalFees int64
 	for _, tx := range transactions {
-		/* todo ppc
 		txFee, err := CheckTransactionInputs(tx, node.height, view,
 			b.chainParams)
 		if err != nil {
@@ -1216,13 +1205,13 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 			return ruleError(ErrBadFees, "total fees for block "+
 				"overflows accumulator")
 		}
-		*/
 
 		// Add all of the outputs for this transaction which are not
 		// provably unspendable as available utxos.  Also, the passed
 		// spent txos slice is updated to contain an entry for each
 		// spent txout in the order each transaction spends them.
-		err = view.connectTransaction(tx, node.height, tx.MsgTx().Timestamp, stxos) // todo ppc update for v3
+		// todo ppc verify timestamps + update for v3
+		err = view.connectTransaction(tx, node.height, time.Unix(node.timestamp, 0), tx.MsgTx().Timestamp, stxos)
 		if err != nil {
 			return err
 		}

@@ -47,7 +47,8 @@ type UtxoEntry struct {
 	amount      int64
 	pkScript    []byte // The public key script for the output.
 	blockHeight int32  // Height of block containing tx.
-	timestamp time.Time
+	blockTime   time.Time
+	timestamp   time.Time
 
 	// packedFlags contains additional info about output such as whether it
 	// is a coinbase, whether it is spent, and whether it has been modified
@@ -75,6 +76,10 @@ func (entry *UtxoEntry) IsCoinStake() bool {
 // BlockHeight returns the height of the block containing the output.
 func (entry *UtxoEntry) BlockHeight() int32 {
 	return entry.blockHeight
+}
+
+func (entry *UtxoEntry) BlockTime() time.Time {
+	return entry.blockTime
 }
 
 func (entry *UtxoEntry) Timestamp() time.Time {
@@ -119,6 +124,7 @@ func (entry *UtxoEntry) Clone() *UtxoEntry {
 		amount:      entry.amount,
 		pkScript:    entry.pkScript,
 		blockHeight: entry.blockHeight,
+		blockTime:   entry.blockTime,
 		timestamp:   entry.timestamp,
 		packedFlags: entry.packedFlags,
 	}
@@ -126,7 +132,7 @@ func (entry *UtxoEntry) Clone() *UtxoEntry {
 
 // NewUtxoEntry returns a new UtxoEntry built from the arguments.
 func NewUtxoEntry(
-	txOut *wire.TxOut, blockHeight int32, timestamp time.Time, isCoinbase bool, isCoinStake bool) *UtxoEntry {
+	txOut *wire.TxOut, blockHeight int32, blockTime time.Time, timestamp time.Time, isCoinbase bool, isCoinStake bool) *UtxoEntry {
 	var cbFlag txoFlags
 	if isCoinbase {
 		cbFlag |= tfCoinBase
@@ -139,6 +145,7 @@ func NewUtxoEntry(
 		amount:      txOut.Value,
 		pkScript:    txOut.PkScript,
 		blockHeight: blockHeight,
+		blockTime:   blockTime,
 		timestamp:   timestamp,
 		packedFlags: cbFlag,
 	}
@@ -197,7 +204,7 @@ func (view *UtxoViewpoint) FetchPrevOutput(op wire.OutPoint) *wire.TxOut {
 // unspendable.  When the view already has an entry for the output, it will be
 // marked unspent.  All fields will be updated for existing entries since it's
 // possible it has changed during a reorg.
-func (view *UtxoViewpoint) addTxOut(outpoint wire.OutPoint, txOut *wire.TxOut, isCoinBase bool, isCoinStake bool, blockHeight int32, timestamp time.Time) {
+func (view *UtxoViewpoint) addTxOut(outpoint wire.OutPoint, txOut *wire.TxOut, isCoinBase bool, isCoinStake bool, blockHeight int32, blockTime time.Time, timestamp time.Time) {
 	// Don't add provably unspendable outputs.
 	if txscript.IsUnspendable(txOut.PkScript) {
 		return
@@ -216,6 +223,7 @@ func (view *UtxoViewpoint) addTxOut(outpoint wire.OutPoint, txOut *wire.TxOut, i
 	entry.amount = txOut.Value
 	entry.pkScript = txOut.PkScript
 	entry.blockHeight = blockHeight
+	entry.blockTime = blockTime
 	entry.timestamp = timestamp
 	entry.packedFlags = tfModified
 	if isCoinBase {
@@ -230,7 +238,7 @@ func (view *UtxoViewpoint) addTxOut(outpoint wire.OutPoint, txOut *wire.TxOut, i
 // it exists and is not provably unspendable.  When the view already has an
 // entry for the output, it will be marked unspent.  All fields will be updated
 // for existing entries since it's possible it has changed during a reorg.
-func (view *UtxoViewpoint) AddTxOut(tx *btcutil.Tx, txOutIdx uint32, blockHeight int32, timestamp time.Time) {
+func (view *UtxoViewpoint) AddTxOut(tx *btcutil.Tx, txOutIdx uint32, blockHeight int32, blockTime time.Time, timestamp time.Time) {
 	// Can't add an output for an out of bounds index.
 	if txOutIdx >= uint32(len(tx.MsgTx().TxOut)) {
 		return
@@ -242,14 +250,14 @@ func (view *UtxoViewpoint) AddTxOut(tx *btcutil.Tx, txOutIdx uint32, blockHeight
 	// is allowed so long as the previous transaction is fully spent.
 	prevOut := wire.OutPoint{Hash: *tx.Hash(), Index: txOutIdx}
 	txOut := tx.MsgTx().TxOut[txOutIdx]
-	view.addTxOut(prevOut, txOut, IsCoinBase(tx), IsCoinStake(tx), blockHeight, timestamp)
+	view.addTxOut(prevOut, txOut, IsCoinBase(tx), IsCoinStake(tx), blockHeight, blockTime, timestamp)
 }
 
 // AddTxOuts adds all outputs in the passed transaction which are not provably
 // unspendable to the view.  When the view already has entries for any of the
 // outputs, they are simply marked unspent.  All fields will be updated for
 // existing entries since it's possible it has changed during a reorg.
-func (view *UtxoViewpoint) AddTxOuts(tx *btcutil.Tx, blockHeight int32, timestamp time.Time) {
+func (view *UtxoViewpoint) AddTxOuts(tx *btcutil.Tx, blockHeight int32, blockTime time.Time, timestamp time.Time) {
 	// Loop all of the transaction outputs and add those which are not
 	// provably unspendable.
 	isCoinBase := IsCoinBase(tx)
@@ -262,7 +270,7 @@ func (view *UtxoViewpoint) AddTxOuts(tx *btcutil.Tx, blockHeight int32, timestam
 		// same hash.  This is allowed so long as the previous
 		// transaction is fully spent.
 		prevOut.Index = uint32(txOutIdx)
-		view.addTxOut(prevOut, txOut, isCoinBase, isCoinStake, blockHeight, timestamp)
+		view.addTxOut(prevOut, txOut, isCoinBase, isCoinStake, blockHeight, blockTime, timestamp)
 	}
 }
 
@@ -271,11 +279,11 @@ func (view *UtxoViewpoint) AddTxOuts(tx *btcutil.Tx, blockHeight int32, timestam
 // spent.  In addition, when the 'stxos' argument is not nil, it will be updated
 // to append an entry for each spent txout.  An error will be returned if the
 // view does not contain the required utxos.
-func (view *UtxoViewpoint) connectTransaction(tx *btcutil.Tx, blockHeight int32, timestamp time.Time, stxos *[]SpentTxOut) error {
+func (view *UtxoViewpoint) connectTransaction(tx *btcutil.Tx, blockHeight int32, blockTime time.Time, timestamp time.Time, stxos *[]SpentTxOut) error {
 	// Coinbase transactions don't have any inputs to spend.
 	if IsCoinBase(tx) {
 		// Add the transaction's outputs as available utxos.
-		view.AddTxOuts(tx, blockHeight, timestamp)
+		view.AddTxOuts(tx, blockHeight, blockTime, timestamp)
 		return nil
 	}
 
@@ -298,6 +306,7 @@ func (view *UtxoViewpoint) connectTransaction(tx *btcutil.Tx, blockHeight int32,
 				Amount:      entry.Amount(),
 				PkScript:    entry.PkScript(),
 				Height:      entry.BlockHeight(),
+				BlockTime:   entry.BlockTime(),
 				Timestamp:   entry.Timestamp(),
 				IsCoinBase:  entry.IsCoinBase(),
 				IsCoinStake: entry.IsCoinStake(),
@@ -312,7 +321,7 @@ func (view *UtxoViewpoint) connectTransaction(tx *btcutil.Tx, blockHeight int32,
 	}
 
 	// Add the transaction's outputs as available utxos.
-	view.AddTxOuts(tx, blockHeight, timestamp)
+	view.AddTxOuts(tx, blockHeight, blockTime, timestamp)
 	return nil
 }
 
@@ -321,9 +330,9 @@ func (view *UtxoViewpoint) connectTransaction(tx *btcutil.Tx, blockHeight int32,
 // spend as spent, and setting the best hash for the view to the passed block.
 // In addition, when the 'stxos' argument is not nil, it will be updated to
 // append an entry for each spent txout.
-func (view *UtxoViewpoint) connectTransactions(block *btcutil.Block, timestamp time.Time, stxos *[]SpentTxOut) error {
+func (view *UtxoViewpoint) connectTransactions(block *btcutil.Block, stxos *[]SpentTxOut) error {
 	for _, tx := range block.Transactions() {
-		err := view.connectTransaction(tx, block.Height(), timestamp, stxos)
+		err := view.connectTransaction(tx, block.Height(), block.MsgBlock().Header.Timestamp, tx.MsgTx().Timestamp, stxos)
 		if err != nil {
 			return err
 		}
@@ -415,6 +424,7 @@ func (view *UtxoViewpoint) disconnectTransactions(db database.DB, block *btcutil
 					amount:      txOut.Value,
 					pkScript:    txOut.PkScript,
 					blockHeight: block.Height(),
+					blockTime:   block.MsgBlock().Header.Timestamp,
 					timestamp:   tx.MsgTx().Timestamp,
 					packedFlags: packedFlags,
 				}
@@ -478,6 +488,7 @@ func (view *UtxoViewpoint) disconnectTransactions(db database.DB, block *btcutil
 				}
 
 				stxo.Height = utxo.BlockHeight()
+				stxo.BlockTime = utxo.BlockTime()
 				stxo.Timestamp = utxo.Timestamp()
 				stxo.IsCoinBase = utxo.IsCoinBase()
 				stxo.IsCoinStake = utxo.IsCoinStake()
@@ -488,6 +499,7 @@ func (view *UtxoViewpoint) disconnectTransactions(db database.DB, block *btcutil
 			entry.amount = stxo.Amount
 			entry.pkScript = stxo.PkScript
 			entry.blockHeight = stxo.Height
+			entry.blockTime = stxo.BlockTime
 			entry.timestamp = stxo.Timestamp
 			entry.packedFlags = tfModified
 			if stxo.IsCoinBase {
@@ -625,7 +637,7 @@ func (view *UtxoViewpoint) fetchInputUtxos(db database.DB, block *btcutil.Block)
 				i >= inFlightIndex {
 
 				originTx := transactions[inFlightIndex]
-				view.AddTxOuts(originTx, block.Height(), tx.MsgTx().Timestamp) // todo ppc switch for v3
+				view.AddTxOuts(originTx, block.Height(), block.MsgBlock().Header.Timestamp, tx.MsgTx().Timestamp) // todo ppc switch / merge for v3
 				continue
 			}
 

@@ -298,7 +298,7 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 // guaranteed to be in main chain by sync-checkpoint. This rule is
 // introduced to help nodes establish a consistent view of the coin
 // age (trust score) of competing branches.
-func getCoinAgeTx(tx *btcutil.Tx, utxoView UtxoViewpoint) (uint64, error) {
+func getCoinAgeTx(tx *btcutil.Tx, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) (uint64, error) {
 
 	bnCentSecond := big.NewInt(0) // coin age in the unit of cent-seconds
 
@@ -314,40 +314,27 @@ func getCoinAgeTx(tx *btcutil.Tx, utxoView UtxoViewpoint) (uint64, error) {
 		if txPrev == nil {
 			continue // previous transaction not in main chain
 		}
-		/*
-			// todo ppc v3 tx does not carry timestamps, use block instead
-			// txPrevTime := txPrev.Tx.MsgTx().Timestamp.Unix()
-			if nTime < txPrevTime {
-				err := fmt.Errorf("Transaction timestamp violation")
-				return 0, err // Transaction timestamp violation
-			}
-
-		// Read block header
-		// The desired block height is in the main chain, so look it up
-		// from the main chain database.
-		txPrevBlock, err := blockchain.BlockByHeight(txPrev.BlockHeight())
-		if err != nil {
-			err = fmt.Errorf("CheckProofOfStake() : read block failed") // unable to read block of previous transaction
-			return 0, err
+		txPrevTime := txPrev.Timestamp().Unix()
+		if nTime < txPrevTime {
+			err := fmt.Errorf("Transaction timestamp violation")
+			return 0, err // Transaction timestamp violation
 		}
-		/* todo ppc
-		txPrevBlock, err := b.db.FetchBlockBySha(txPrevBlockHash)
-		if err != nil {
-			err = fmt.Errorf("CheckProofOfStake() : read block failed") // unable to read block of previous transaction
-			return 0, err
-		}
-		if txPrevBlock.MsgBlock().Header.Timestamp.Unix()+b.chainParams.StakeMinAge > nTime {
+		// todo ppc v3 tx does not carry timestamps, use block instead
+		// todo ppc verify Timestamp does what we need it to
+		// todo ppc this might be too lax. we either need blocktime in utxoview or another way to fetch the block itself
+		if (txPrev.BlockTime().Unix()+chainParams.StakeMinAge > nTime) ||
+			(txPrevTime+chainParams.StakeMinAge > nTime) {
 			continue // only count coins meeting min age requirement
 		}
 
-		// todo ppc
-		//txPrevIndex := txIn.PreviousOutPoint.Index
+		// todo ppc this is probably wrong
+		// txPrevIndex := txIn.PreviousOutPoint.Index
 		nValueIn := txPrev.Amount()
 		bnCentSecond.Add(bnCentSecond,
-			new(big.Int).Div(new(big.Int).Mul(big.NewInt(nValueIn), big.NewInt((nTime-txPrevBlock.MsgBlock().Header.Timestamp.Unix()))),
+			new(big.Int).Div(new(big.Int).Mul(big.NewInt(nValueIn), big.NewInt(nTime-txPrev.BlockTime().Unix())),
 				big.NewInt(Cent)))
 
-		log.Debugf("coin age nValueIn=%v nTimeDiff=%v bnCentSecond=%v", nValueIn, nTime-txPrevBlock.MsgBlock().Header.Timestamp.Unix(), bnCentSecond.String())
+		log.Debugf("coin age nValueIn=%v nTimeDiff=%v bnCentSecond=%v", nValueIn, nTime-txPrev.BlockTime().Unix(), bnCentSecond.String())
 	}
 
 	bnCoinDay := new(big.Int).Div(new(big.Int).Mul(bnCentSecond, big.NewInt(Cent)),
@@ -682,7 +669,7 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error { // todo ppc add more rule
 // Basing on CTransaction::ConnectInputs().
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1149
 func ppcCheckTransactionInputs(tx *btcutil.Tx, utxoView *UtxoViewpoint,
-	satoshiIn int64, satoshiOut int64) error {
+	satoshiIn int64, satoshiOut int64, chainParams *chaincfg.Params) error {
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1230
 	// ppc: coin stake tx earns reward instead of paying fee
 	// if (IsCoinStake())
@@ -695,8 +682,7 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, utxoView *UtxoViewpoint,
 	// 	return DoS(100, error("ConnectInputs() : %s stake reward exceeded", GetHash().ToString().substr(0,10).c_str()));
 	// }
 	if IsCoinStake(tx) {
-		/* todo ppc
-		coinAge, err := getCoinAgeTx(tx, utxoView)
+		coinAge, err := getCoinAgeTx(tx, utxoView, chainParams) // todo ppc output here doesn't make sense yet
 		if err != nil {
 			return fmt.Errorf("unable to get coin age for coinstake: %v", err)
 		}
@@ -721,19 +707,18 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, utxoView *UtxoViewpoint,
 	return nil
 }
 
-/*
-func ppcCheckTransactionInput(tx *btcutil.Tx, txOut *wire.TxIn, originTx *TxData) error {
+func ppcCheckTransactionInput(tx *btcutil.Tx, txIn *wire.TxIn, originUtxo *UtxoEntry) error {
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1177
 	// ppc: check transaction timestamp
 	// if (txPrev.nTime > nTime)
 	// 	return DoS(100, error("ConnectInputs() : transaction timestamp earlier than input transaction"));
-	if originTx.Tx.MsgTx().Timestamp.After(tx.MsgTx().Timestamp) {
+	// todo ppc I added timestamp to utxoview, and it might not be accurate.
+	if originUtxo.Timestamp().After(tx.MsgTx().Timestamp) {
 		str := "transaction timestamp earlier than input transaction"
 		return ruleError(ErrEarlierTimestamp, str)
 	}
 	return nil
 }
-*/
 
 // Peercoin additional context free block checks.
 // Basing on CBlock::CheckBlock().

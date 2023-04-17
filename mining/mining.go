@@ -297,8 +297,8 @@ func spendTransaction(utxoView *blockchain.UtxoViewpoint, tx *btcutil.Tx, height
 		}
 	}
 
-	var timestamp time.Time // todo ppc
-	utxoView.AddTxOuts(tx, height, timestamp)
+	var timestamp time.Time // todo ppc replace dummy
+	utxoView.AddTxOuts(tx, height, timestamp, timestamp)
 	return nil
 }
 

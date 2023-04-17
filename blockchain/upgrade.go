@@ -329,6 +329,7 @@ func determineMainChainBlocks(blocksMap map[chainhash.Hash]*blockChainContext, t
 //    - 0x01: special script type pay-to-script-hash
 //    - 0x1d...e6: script hash
 func deserializeUtxoEntryV0(serialized []byte) (map[uint32]*UtxoEntry, error) {
+	// todo ppc we probably don't need upgrading timestamp(s), since future versions won't be used at v0
 	// Deserialize the version.
 	//
 	// NOTE: Ignore version since it is no longer used in the new format.

@@ -112,7 +112,7 @@ func (b *BlockChain) getLastStakeModifier(pindex *blockNode) (
 // Get selection interval section (in seconds)
 func getStakeModifierSelectionIntervalSection(params *chaincfg.Params, nSection int) int64 {
 	//assert (nSection >= 0 && nSection < 64)
-	return (params.ModifierInterval * 63 / (63 + ((63 - int64(nSection)) * (nModifierIntervalRatio - 1))))
+	return params.ModifierInterval * 63 / (63 + ((63 - int64(nSection)) * (nModifierIntervalRatio - 1)))
 }
 
 // Get stake modifier selection interval (in seconds)
@@ -285,11 +285,15 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	nSelectionIntervalStart := (pindexPrev.timestamp/b.chainParams.ModifierInterval)*b.chainParams.ModifierInterval - nSelectionInterval
 	log.Debugf("computeNextStakeModifier: nSelectionInterval = %d, nSelectionIntervalStart = %s[%d]", nSelectionInterval, dateTimeStrFormat(nSelectionIntervalStart), nSelectionIntervalStart)
 	pindex := pindexPrev
+	// todo ppc either the timestamp is off or we're reaching genesis block for some other reason
 	for pindex != nil && (pindex.timestamp >= nSelectionIntervalStart) {
 		vSortedByTimestamp = append(vSortedByTimestamp,
 			blockTimeHash{pindex.timestamp, &pindex.hash})
-		pindex = b.index.LookupNode(&pindex.parent.hash)
-		// todo ppc error out?
+		if pindex.parent != nil { // todo ppc meh
+			pindex = b.index.LookupNode(&pindex.parent.hash)
+		} else {
+			break
+		}
 	}
 	// TODO needs verification
 	//reverse(vSortedByTimestamp.begin(), vSortedByTimestamp.end());
@@ -939,17 +943,17 @@ func (b *BlockChain) checkCoinStakeTimestamp(
 		return (nTimeBlock == nTimeTx)
 	}
 	// v0.2 protocol
-	return ((nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxClockDrift))
+	return (nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxClockDrift)
 }
 
 func checkCoinStakeTimestamp(params *chaincfg.Params,
 	nTimeBlock int64, nTimeTx int64) bool {
 
 	if isProtocolV03FromParams(params, nTimeTx) { // v0.3 protocol
-		return (nTimeBlock == nTimeTx)
+		return nTimeBlock == nTimeTx
 	}
 	// v0.2 protocol
-	return ((nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxClockDrift))
+	return (nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxClockDrift)
 }
 
 // Get stake modifier checksum

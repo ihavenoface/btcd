@@ -11,6 +11,8 @@ import (
 
 var blockMetaSuffix = []byte{'b', 'm'}
 
+// todo ppc verify
+
 func hashMetaToKey(hash *chainhash.Hash) []byte {
 	key := make([]byte, len(hash)+len(blockMetaSuffix))
 	copy(key, hash[:])

@@ -800,7 +800,7 @@ func (mp *TxPool) fetchInputUtxos(tx *btcutil.Tx) (*blockchain.UtxoViewpoint, er
 			// AddTxOut ignores out of range index values, so it is
 			// safe to call without bounds checking here.
 			utxoView.AddTxOut(poolTxDesc.Tx, prevOut.Index,
-				mining.UnminedHeight, tx.MsgTx().Timestamp) // todo ppc update for v3
+				mining.UnminedHeight, entry.BlockTime(), tx.MsgTx().Timestamp) // todo ppc these are probably wrong; update for v3
 		}
 	}
 
@@ -978,6 +978,14 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 		return nil, nil, txRuleError(wire.RejectInvalid, str)
 	}
 
+	// todo ppc it neither must be a coinstake transaction
+	// todo ppc check for similar pairings elsewhere
+	if blockchain.IsCoinStake(tx) {
+		str := fmt.Sprintf("transaction %v is an individual coinstake",
+			txHash)
+		return nil, nil, txRuleError(wire.RejectInvalid, str)
+	}
+
 	// Get the current height of the main chain.  A standalone transaction
 	// will be mined into the next block at best, so its height is at least
 	// one more than the current height.
@@ -1084,6 +1092,8 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 	// rules in blockchain for what transactions are allowed into blocks.
 	// Also returns the fees associated with the transaction which will be
 	// used later.
+	// todo ppc we currently have no way to handle utxos that are coinstake from here
+	//   -> we could add that to utxoviewpoint.go
 	txFee, err := blockchain.CheckTransactionInputs(tx, nextBlockHeight,
 		utxoView, mp.cfg.ChainParams)
 	if err != nil {
