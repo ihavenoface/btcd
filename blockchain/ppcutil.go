@@ -39,14 +39,18 @@ const (
 	nProtocolV07SwitchTime     int64 = 1552392000 // Tue 12 Mar 12:00:00 UTC 2019
 	nProtocolV07TestSwitchTime int64 = 1541505600 // Tue 06 Nov 12:00:00 UTC 2018
 	// Switch time for new BIPs from bitcoin 0.16.x
-	nBTC16BIPsSwitchTime     uint32 = 1569931200 // Tue 01 Oct 12:00:00 UTC 2019
-	nBTC16BIPsTestSwitchTime uint32 = 1554811200 // Tue 09 Apr 12:00:00 UTC 2019
+	// todo ppc uint32?
+	nBTC16BIPsSwitchTime     int64 = 1569931200 // Tue 01 Oct 12:00:00 UTC 2019
+	nBTC16BIPsTestSwitchTime int64 = 1554811200 // Tue 09 Apr 12:00:00 UTC 2019
 	// Protocol switch time for v0.9 kernel protocol
 	nProtocolV09SwitchTime     int64 = 1591617600 // Mon  8 Jun 12:00:00 UTC 2020
 	nProtocolV09TestSwitchTime int64 = 1581940800 // Mon 17 Feb 12:00:00 UTC 2020
 	// Protocol switch time for v10 kernel protocol
 	nProtocolV10SwitchTime     int64 = 1635768000 // Mon  1 Nov 12:00:00 UTC 2021
 	nProtocolV10TestSwitchTime int64 = 1625140800 // Thu  1 Jul 12:00:00 UTC 2021
+	// Protocol switch time for v12 kernel protocol
+	nProtocolV12SwitchTime     int64 = 1681732800 // Mon 17 Apr 12:00:00 UTC 2023
+	nProtocolV12TestSwitchTime int64 = 1669636800 // Mon 28 Nov 12:00:00 UTC 2022
 )
 
 /*
@@ -185,12 +189,20 @@ func IsProtocolV07(chainParams *chaincfg.Params, nTime int64) bool {
 	return nTime >= v07SwitchTime
 }
 
-// todo ppc IsBTC16BIPsEnabled()
+func IsBTC16BIPsEnabled(chainParams *chaincfg.Params, nTime int64) bool {
+	var nBTC16SwitchTime int64
+	if chainParams.Name == "testnet3" {
+		nBTC16SwitchTime = nBTC16BIPsTestSwitchTime
+	} else {
+		nBTC16SwitchTime = nBTC16BIPsSwitchTime
+	}
+	return nTime >= nBTC16SwitchTime
+}
 
 // Whether a given transaction is subject to new v0.9 protocol
-func IsProtocolV09(b *BlockChain, nTime int64) bool {
+func IsProtocolV09(chainParams *chaincfg.Params, nTime int64) bool {
 	var v09SwitchTime int64
-	if b.chainParams.Name == "testnet3" {
+	if chainParams.Name == "testnet3" {
 		v09SwitchTime = nProtocolV09TestSwitchTime
 	} else {
 		v09SwitchTime = nProtocolV09SwitchTime
@@ -199,14 +211,39 @@ func IsProtocolV09(b *BlockChain, nTime int64) bool {
 }
 
 // Whether a given timestamp is subject to new v10 protocol
-func IsProtocolV10(b *BlockChain, nTime int64) bool {
+func IsProtocolV10(chainParams *chaincfg.Params, nTime int64) bool {
 	var v10SwitchTime int64
-	if b.chainParams.Name == "testnet3" {
+	if chainParams.Name == "testnet3" {
 		v10SwitchTime = nProtocolV10TestSwitchTime
 	} else {
 		v10SwitchTime = nProtocolV10SwitchTime
 	}
 	return nTime >= v10SwitchTime
+}
+
+func IsProtocolV12(b *BlockChain, pindexPrev *blockNode) bool {
+	// todo ppc this is unused atm
+	var switchTime int64
+	if b.chainParams.Name == "testnet3" {
+		switchTime = nProtocolV12TestSwitchTime
+	} else {
+		switchTime = nProtocolV12SwitchTime
+	}
+	if pindexPrev.timestamp < switchTime {
+		return false
+	}
+
+	// if 900 of the last 1,000 blocks are version 2 or greater (90/100 if testnet):
+	// Soft-forking PoS can be dangerous if the super majority is too low
+	// The stake majority will decrease after the fork
+	// since only coindays of updated nodes will get destroyed.
+	// todo ppc check if mainnet (900) works as expected
+	if (b.chainParams.Name == "mainnet" && IsSuperMajority(b, 4, pindexPrev, 900, 1000)) ||
+		(b.chainParams.Name != "mainnet" && IsSuperMajority(b, 4, pindexPrev, 90, 100)) {
+		return true
+	}
+
+	return false
 }
 
 // dateTimeStrFormat displays time in RFC3339 format

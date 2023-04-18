@@ -12,6 +12,7 @@ import (
 	"io"
 	"math/big"
 	"sort"
+	"time"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -28,6 +29,9 @@ const (
 	StakeMaxAge int64 = 60 * 60 * 24 * 90 // stake age of full weight
 	// MaxClockDrift TODO(kac-) golint
 	MaxClockDrift int64 = 2 * 60 * 60 // two hours (main.h)
+
+	MaxFutureBlockTimePrev09 int64 = 2 * 60 * 60
+	MaxFutureBlockTime       int64 = 15 * 60
 )
 
 type blockTimeHash struct {
@@ -631,7 +635,15 @@ func (b *BlockChain) checkStakeKernelHash(
 	success = false
 
 	txMsgPrev := txPrev.MsgTx()
-	if nTimeTx < txMsgPrev.Timestamp.Unix() { // Transaction timestamp violation
+	nTimeBlockFrom := blockFrom.MsgBlock().Header.Timestamp.Unix()
+
+	var nTimeTxPrev int64
+	if txMsgPrev.Timestamp.Unix() == 0 {
+		nTimeTxPrev = nTimeBlockFrom
+	} else {
+		nTimeTxPrev = txMsgPrev.Timestamp.Unix()
+	}
+	if nTimeTx < nTimeTxPrev { // Transaction timestamp violation
 		err = errors.New("checkStakeKernelHash() : nTime violation")
 		return
 	}
@@ -640,7 +652,6 @@ func (b *BlockChain) checkStakeKernelHash(
 	// 1346126538
 	// 1346140595
 
-	nTimeBlockFrom := blockFrom.MsgBlock().Header.Timestamp.Unix()
 	if nTimeBlockFrom+b.chainParams.StakeMinAge > nTimeTx { // Min age requirement
 		err = errors.New("checkStakeKernelHash() : min age violation")
 		return
@@ -660,7 +671,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	} else {
 		timeReduction = 0
 	}
-	nTimeWeight := minInt64(nTimeTx-txMsgPrev.Timestamp.Unix(), StakeMaxAge) - timeReduction
+	nTimeWeight := minInt64(nTimeTx-nTimeTxPrev, StakeMaxAge) - timeReduction
 
 	//CBigNum bnCoinDayWeight = CBigNum(nValueIn) * nTimeWeight / COIN / (24 * 60 * 60)
 	bnCoinDayWeight := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(
@@ -715,7 +726,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	if err != nil {
 		return
 	}
-	err = writeElement(buf, uint32(txMsgPrev.Timestamp.Unix()))
+	err = writeElement(buf, uint32(nTimeTxPrev))
 	bufSize += 4
 	if err != nil {
 		return
@@ -759,7 +770,7 @@ func (b *BlockChain) checkStakeKernelHash(
 		}
 		// todo ppc update log v05
 		log.Debugf("checkStakeKernelHash() : check protocol=%s modifier=%d nBits=%d nTimeBlockFrom=%d nTxPrevOffset=%d nTimeTxPrev=%d nPrevout=%d nTimeTx=%d hashProof=%s",
-			ver, modifier, nBits, nTimeBlockFrom, nTxPrevOffset, txMsgPrev.Timestamp.Unix(),
+			ver, modifier, nBits, nTimeBlockFrom, nTxPrevOffset, nTimeTxPrev,
 			prevout.Index, nTimeTx, hashProofOfStake.String())
 	}
 
@@ -789,7 +800,7 @@ func (b *BlockChain) checkStakeKernelHash(
 			modifier = uint64(nBits)
 		}
 		log.Debugf("checkStakeKernelHash() : pass protocol=%s modifier=%d nTimeBlockFrom=%d nTxPrevOffset=%d nTimeTxPrev=%d nPrevout=%d nTimeTx=%d hashProof=%s",
-			ver, modifier, nTimeBlockFrom, nTxPrevOffset, txMsgPrev.Timestamp.Unix(),
+			ver, modifier, nTimeBlockFrom, nTxPrevOffset, nTimeTxPrev,
 			prevout.Index, nTimeTx, hashProofOfStake.String())
 	}
 
@@ -798,7 +809,7 @@ func (b *BlockChain) checkStakeKernelHash(
 }
 
 // Check kernel hash target and coinstake signature
-func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSource, nBits uint32) (
+func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSource, nBits uint32, blockTime time.Time) (
 	hashProofOfStake *chainhash.Hash, err error) {
 	// todo ppc possibly run lock
 
@@ -877,7 +888,14 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSo
 
 	success := false
 	for _, txPrev := range prevBlock.Transactions() {
+
 		if txPrev.Hash().IsEqual(&txin.PreviousOutPoint.Hash) {
+			var nTimeTx int64
+			if msgTx.Timestamp.Unix() == 0 {
+				nTimeTx = blockTime.Unix()
+			} else {
+				nTimeTx = msgTx.Timestamp.Unix()
+			}
 			fDebug := true
 			//nTxPrevOffset uint := txindex.pos.nTxPos - txindex.pos.nBlockPos
 			//prevBlockTxLoc, _ := prevBlock.TxLoc() // TODO not optimal way
@@ -886,7 +904,7 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSo
 			//log.Infof("Comparing txOffset : %v - %v", nTxPrevOffset, nTxPrevOffsetMeta)
 			hashProofOfStake, success, err = b.checkStakeKernelHash(
 				nBits, prevBlock, nTxPrevOffset, txPrev, &txin.PreviousOutPoint,
-				msgTx.Timestamp.Unix(), timeSource, fDebug)
+				nTimeTx, timeSource, fDebug)
 			if err != nil {
 				return
 			}
@@ -919,7 +937,7 @@ func (b *BlockChain) checkBlockProofOfStake(block *btcutil.Block, timeSource Med
 		}
 
 		hashProofOfStake, err :=
-			b.checkTxProofOfStake(tx, timeSource, block.MsgBlock().Header.Bits)
+			b.checkTxProofOfStake(tx, timeSource, block.MsgBlock().Header.Bits, block.MsgBlock().Header.Timestamp)
 		if err != nil {
 			return err
 		}
@@ -940,10 +958,10 @@ func (b *BlockChain) checkCoinStakeTimestamp(
 	nTimeBlock int64, nTimeTx int64) bool {
 
 	if isProtocolV03(b, nTimeTx) { // v0.3 protocol
-		return (nTimeBlock == nTimeTx)
+		return nTimeBlock == nTimeTx
 	}
 	// v0.2 protocol
-	return (nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxClockDrift)
+	return (nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxFutureBlockTimePrev09)
 }
 
 func checkCoinStakeTimestamp(params *chaincfg.Params,
@@ -953,7 +971,7 @@ func checkCoinStakeTimestamp(params *chaincfg.Params,
 		return nTimeBlock == nTimeTx
 	}
 	// v0.2 protocol
-	return (nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxClockDrift)
+	return (nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxFutureBlockTimePrev09)
 }
 
 // Get stake modifier checksum
@@ -1027,6 +1045,10 @@ func (b *BlockChain) checkStakeModifierCheckpoints(
 }
 
 func IsSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) bool {
+	return HowSuperMajority(b, minVersion, pstart, nRequired, nToCheck) >= nRequired
+}
+
+func HowSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) uint64 {
 	// todo ppc check if mainnet (900) works as expected
 	numFound := uint64(0)
 	iterNode := pstart
@@ -1051,7 +1073,7 @@ func IsSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequir
 		}
 	}
 
-	return numFound >= nRequired
+	return numFound
 }
 
 // todo ppc check if we can attach to blockchain like this

@@ -313,7 +313,6 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 //  - BFNoPoWCheck: The check to ensure the block hash is less than the target
 //    difficulty is not performed.
 func checkProofOfWork(header *wire.BlockHeader, powLimit *big.Int, flags BehaviorFlags) error {
-	return nil // todo ppc
 	// The target difficulty must be larger than zero.
 	target := CompactToBig(header.Bits)
 	if target.Sign() <= 0 {
@@ -658,7 +657,7 @@ func checkSerializedHeight(coinbaseTx *btcutil.Tx, wantHeight int32) error {
 //    the checkpoints are not performed.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode *blockNode, flags BehaviorFlags) error {
+func (b *BlockChain) checkBlockHeaderContext(chainParams *chaincfg.Params, header *wire.BlockHeader, prevNode *blockNode, flags BehaviorFlags) error {
 	fastAdd := flags&BFFastAdd == BFFastAdd
 	if !fastAdd {
 		// Ensure the difficulty specified in the block header matches
@@ -681,7 +680,14 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 		// Ensure the timestamp for the block header is after the
 		// median time of the last several blocks (medianTimeBlocks).
 		medianTime := prevNode.CalcPastMedianTime()
-		if !header.Timestamp.After(medianTime) {
+
+		var maxFutureBlockTime int64 // todo ppc verify
+		if IsProtocolV09(chainParams, header.Timestamp.Unix()) {
+			maxFutureBlockTime = MaxFutureBlockTime
+		} else {
+			maxFutureBlockTime = MaxFutureBlockTimePrev09
+		}
+		if !header.Timestamp.After(medianTime) || header.Timestamp.Unix()+maxFutureBlockTime < prevNode.timestamp {
 			str := "block timestamp of %v is not after expected %v"
 			str = fmt.Sprintf(str, header.Timestamp, medianTime)
 			return ruleError(ErrTimeTooOld, str)
@@ -736,7 +742,8 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 	//        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, strprintf("bad-version(0x%08x)", block.nVersion),
 	//                             strprintf("rejected nVersion=0x%08x block", block.nVersion));
 	// todo ppc verify
-	if header.Version < 2 && IsProtocolV06(b, prevNode) {
+	if header.Version < 2 && IsProtocolV06(b, prevNode) ||
+		header.Version < 4 && IsProtocolV12(b, prevNode) {
 		str := fmt.Sprintf("bad block version=%s at height %d", header.Version, blockHeight)
 		return ruleError(ErrInvalidHeader, str)
 	}
@@ -758,7 +765,7 @@ func (b *BlockChain) checkBlockHeaderContext(header *wire.BlockHeader, prevNode 
 func (b *BlockChain) checkBlockContext(block *btcutil.Block, prevNode *blockNode, flags BehaviorFlags) error {
 	// Perform all block header related validation checks.
 	header := &block.MsgBlock().Header
-	err := b.checkBlockHeaderContext(header, prevNode, flags)
+	err := b.checkBlockHeaderContext(b.chainParams, header, prevNode, flags)
 	if err != nil {
 		return err
 	}
@@ -1227,7 +1234,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 		for _, txOut := range transactions[0].MsgTx().TxOut {
 			totalSatoshiOut += txOut.Value
 		}
-		expectedSatoshiOut := PPCGetProofOfWorkReward(node.bits, b.chainParams)
+		expectedSatoshiOut := PPCGetProofOfWorkReward(node.bits, node.timestamp, b.chainParams)
 		if totalSatoshiOut > expectedSatoshiOut {
 			str := fmt.Sprintf("coinbase transaction for block pays %v "+
 				"which is more than expected value of %v",

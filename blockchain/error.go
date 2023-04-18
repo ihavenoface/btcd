@@ -251,6 +251,10 @@ const (
 	// proof-of-stake block is not empty.
 	ErrCoinbaseNotEmpty
 
+	// ErrCoinbaseTimeViolation indicates the coinbase timestamp doesn't
+	// meet protocol.
+	ErrCoinbaseTimeViolation
+
 	// ErrCoinstakeTimeViolation indicates the coinstake timestamp doesn't
 	// meet protocol.
 	ErrCoinstakeTimeViolation
@@ -325,6 +329,7 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrInsufficientFee:        "ErrInsufficientFee",
 	ErrWrongCoinstakePosition: "ErrWrongCoinstakePosition",
 	ErrCoinbaseNotEmpty:       "ErrCoinbaseNotEmpty",
+	ErrCoinbaseTimeViolation:  "ErrCoinbaseTimeViolation",
 	ErrCoinstakeTimeViolation: "ErrCoinstakeTimeViolation",
 	ErrBlockBeforeTx:          "ErrBlockBeforeTx",
 	ErrBadBlockSignature:      "ErrBadBlockSignature",
