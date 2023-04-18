@@ -297,11 +297,9 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 
 	// Peercoin - sanity checks
 	// todo ppc implement v3
-	if tx.MsgTx().Version < 3 {
-		ppcErr := ppcCheckTransactionSanity(tx)
-		if ppcErr != nil {
-			return ppcErr
-		}
+	ppcErr := ppcCheckTransactionSanity(tx)
+	if ppcErr != nil {
+		return ppcErr
 	}
 
 	return nil
@@ -438,13 +436,15 @@ func CountP2SHSigOps(tx *btcutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint)
 //
 // The flags do not modify the behavior of this function directly, however they
 // are needed to pass along to checkProofOfWork.
-func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
-	// Ensure the proof of work bits in the block header is in min/max range
-	// and the block hash is less than the target value described by the
-	// bits.
-	err := checkProofOfWork(header, powLimit, flags)
-	if err != nil {
-		return err
+func checkBlockHeaderSanity(msgBlock *wire.MsgBlock, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
+	if !msgBlock.IsProofOfStake() {
+		// Ensure the proof of work bits in the block header is in min/max range
+		// and the block hash is less than the target value described by the
+		// bits.
+		err := checkProofOfWork(&msgBlock.Header, powLimit, flags)
+		if err != nil {
+			return err
+		}
 	}
 
 	// A block timestamp must not have a greater precision than one second.
@@ -452,18 +452,18 @@ func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSou
 	// nanosecond precision whereas the consensus rules only apply to
 	// seconds and it's much nicer to deal with standard Go time values
 	// instead of converting to seconds everywhere.
-	if !header.Timestamp.Equal(time.Unix(header.Timestamp.Unix(), 0)) {
+	if !msgBlock.Header.Timestamp.Equal(time.Unix(msgBlock.Header.Timestamp.Unix(), 0)) {
 		str := fmt.Sprintf("block timestamp of %v has a higher "+
-			"precision than one second", header.Timestamp)
+			"precision than one second", msgBlock.Header.Timestamp)
 		return ruleError(ErrInvalidTime, str)
 	}
 
 	// Ensure the block time is not too far in the future.
 	maxTimestamp := timeSource.AdjustedTime().Add(time.Second *
 		MaxTimeOffsetSeconds)
-	if header.Timestamp.After(maxTimestamp) {
+	if msgBlock.Header.Timestamp.After(maxTimestamp) {
 		str := fmt.Sprintf("block timestamp of %v is too far in the "+
-			"future", header.Timestamp)
+			"future", msgBlock.Header.Timestamp)
 		return ruleError(ErrTimeTooNew, str)
 	}
 
@@ -478,7 +478,7 @@ func checkBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int, timeSou
 func checkBlockSanity(block *btcutil.Block, chainParams *chaincfg.Params, timeSource MedianTimeSource, flags BehaviorFlags) error {
 	msgBlock := block.MsgBlock()
 	header := &msgBlock.Header
-	err := checkBlockHeaderSanity(header, chainParams.PowLimit, timeSource, flags)
+	err := checkBlockHeaderSanity(msgBlock, chainParams.PowLimit, timeSource, flags)
 	if err != nil {
 		return err
 	}
@@ -1217,25 +1217,24 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 		}
 	}
 
-	// The total output values of the coinbase transaction must not exceed
-	// the expected subsidy value plus total transaction fees gained from
-	// mining the block.  It is safe to ignore overflow and out of range
-	// errors here because those error conditions would have already been
-	// caught by checkTransactionSanity.
-	/* todo ppc
-	var totalSatoshiOut int64
-	for _, txOut := range transactions[0].MsgTx().TxOut {
-		totalSatoshiOut += txOut.Value
+	if !node.isProofOfStake() {
+		// The total output values of the coinbase transaction must not exceed
+		// the expected subsidy value plus total transaction fees gained from
+		// mining the block.  It is safe to ignore overflow and out of range
+		// errors here because those error conditions would have already been
+		// caught by checkTransactionSanity.
+		var totalSatoshiOut int64
+		for _, txOut := range transactions[0].MsgTx().TxOut {
+			totalSatoshiOut += txOut.Value
+		}
+		expectedSatoshiOut := PPCGetProofOfWorkReward(node.bits, b.chainParams)
+		if totalSatoshiOut > expectedSatoshiOut {
+			str := fmt.Sprintf("coinbase transaction for block pays %v "+
+				"which is more than expected value of %v",
+				totalSatoshiOut, expectedSatoshiOut)
+			return ruleError(ErrBadCoinbaseValue, str)
+		}
 	}
-	expectedSatoshiOut := CalcBlockSubsidy(node.height, b.chainParams) +
-		totalFees
-	if totalSatoshiOut > expectedSatoshiOut {
-		str := fmt.Sprintf("coinbase transaction for block pays %v "+
-			"which is more than expected value of %v",
-			totalSatoshiOut, expectedSatoshiOut)
-		return ruleError(ErrBadCoinbaseValue, str)
-	}
-	*/
 
 	// Don't run scripts if this node is before the latest known good
 	// checkpoint since the validity is verified via the checkpoints (all
@@ -1263,9 +1262,15 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 		scriptFlags |= txscript.ScriptVerifyDERSignatures
 	}
 
+	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
+	if IsProtocolV06(b, node) {
+		scriptFlags |= txscript.ScriptVerifyCheckLockTimeVerify
+	}
+
 	// Enforce CHECKLOCKTIMEVERIFY for block versions 4+ once the historical
 	// activation threshold has been reached.  This is part of BIP0065.
 	if blockHeader.Version >= 4 && node.height >= b.chainParams.BIP0065Height {
+		// todo ppc disable / merge this?
 		scriptFlags |= txscript.ScriptVerifyCheckLockTimeVerify
 	}
 

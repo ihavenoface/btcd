@@ -545,6 +545,7 @@ func (b *BlockChain) PPCGetLastProofOfWorkReward() (subsidy int64) {
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L829
 // Export required, used in NewBlockTemplate method
 func PPCGetProofOfWorkReward(nBits uint32, chainParams *chaincfg.Params) (subsidy int64) {
+	// todo ppc verify
 	bigTwo := new(big.Int).SetInt64(2)
 	bnSubsidyLimit := new(big.Int).SetInt64(MaxMintProofOfWork)
 	bnTarget := CompactToBig(nBits)
@@ -582,6 +583,7 @@ func PPCGetProofOfWorkReward(nBits uint32, chainParams *chaincfg.Params) (subsid
 // GetMinFee calculates minimum required required for transaction.
 // Export required, used in ppcwallet createCoinStake method
 func GetMinFee(tx *wire.MsgTx) int64 {
+	// todo ppc protov07
 	baseFee := MinTxFee
 	bytes := tx.SerializeSize()
 	minFee := (1 + int64(bytes)/1000) * baseFee
@@ -591,10 +593,22 @@ func GetMinFee(tx *wire.MsgTx) int64 {
 // getMinFee calculates minimum required required for transaction.
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.h#L592
 // Export required, used in ppcwallet createCoinStake method
-func getMinFee(tx *btcutil.Tx) int64 {
+func getMinFee(tx *btcutil.Tx, chainParams *chaincfg.Params) int64 {
 	baseFee := MinTxFee
 	bytes := tx.MsgTx().SerializeSize()
-	minFee := (1 + int64(bytes)/1000) * baseFee
+	var minFee int64
+	if IsProtocolV07(chainParams, tx.MsgTx().Timestamp.Unix()) || tx.MsgTx().Timestamp.Unix() == 0 {
+		if bytes < 100 {
+			minFee = MinTxFee
+		} else {
+			minFee = int64(bytes) * (MinTxFee / 1000)
+		}
+	} else {
+		minFee = (1 + int64(bytes)/1000) * baseFee
+	}
+	if minFee > MaxMoney {
+		minFee = MaxMoney
+	}
 	return minFee
 }
 
@@ -670,6 +684,7 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error { // todo ppc add more rule
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1149
 func ppcCheckTransactionInputs(tx *btcutil.Tx, utxoView *UtxoViewpoint,
 	satoshiIn int64, satoshiOut int64, chainParams *chaincfg.Params) error {
+	// todo ppc missing a bunch of rules -> bool Consensus::CheckTxInputs()
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1230
 	// ppc: coin stake tx earns reward instead of paying fee
 	// if (IsCoinStake())
@@ -687,7 +702,7 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, utxoView *UtxoViewpoint,
 			return fmt.Errorf("unable to get coin age for coinstake: %v", err)
 		}
 		stakeReward := satoshiOut - satoshiIn
-		maxReward := getProofOfStakeReward(int64(coinAge)) - getMinFee(tx) + MinTxFee
+		maxReward := getProofOfStakeReward(int64(coinAge)) - getMinFee(tx, chainParams) + MinTxFee
 		if stakeReward > maxReward {
 			str := fmt.Sprintf("%v stake reward value %v exceeded %v", tx.Hash(), stakeReward, maxReward)
 			return ruleError(ErrBadCoinstakeValue, str)

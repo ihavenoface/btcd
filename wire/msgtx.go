@@ -865,8 +865,7 @@ func (msg *MsgTx) SerializeSize() int {
 		}
 	}
 
-	// peercoin Time 4 bytes
-	return n + 4
+	return n
 }
 
 // SerializeSizeStripped returns the number of bytes it would take to serialize

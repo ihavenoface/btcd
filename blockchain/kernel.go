@@ -1030,8 +1030,11 @@ func IsSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequir
 	// todo ppc check if mainnet (900) works as expected
 	numFound := uint64(0)
 	iterNode := pstart
-	for i := uint64(0); i < nToCheck &&
-		numFound < nRequired && iterNode != nil; i++ {
+	for i := uint64(0); i < nToCheck && numFound < nRequired && iterNode != nil; i++ {
+		if !iterNode.isProofOfStake() {
+			continue
+		}
+
 		// This node has a version that is at least the minimum version.
 		if iterNode.version >= minVersion {
 			numFound++

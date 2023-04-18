@@ -175,9 +175,9 @@ func IsProtocolV06(b *BlockChain, pindexPrev *blockNode) bool {
 }
 
 // Whether a given transaction is subject to new v0.7 protocol
-func IsProtocolV07(b *BlockChain, nTime int64) bool {
+func IsProtocolV07(chainParams *chaincfg.Params, nTime int64) bool {
 	var v07SwitchTime int64
-	if b.chainParams.Name == "testnet3" {
+	if chainParams.Name == "testnet3" {
 		v07SwitchTime = nProtocolV07TestSwitchTime
 	} else {
 		v07SwitchTime = nProtocolV07SwitchTime
