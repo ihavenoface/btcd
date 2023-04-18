@@ -158,6 +158,11 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 
 	actualSpacing := prev.timestamp - prevPrev.timestamp
 
+	nHypotheticalSpacing := lastNode.timestamp - prev.timestamp
+	if !proofOfStake && IsProtocolV12(b, prev) && (nHypotheticalSpacing > actualSpacing) {
+		actualSpacing = nHypotheticalSpacing
+	}
+
 	newTarget := CompactToBig(prev.bits)
 	var targetSpacing int64
 	if proofOfStake {
@@ -327,8 +332,7 @@ func getCoinAgeTx(tx *btcutil.Tx, utxoView *UtxoViewpoint, chainParams *chaincfg
 		// todo ppc v3 tx does not carry timestamps, use block instead
 		// todo ppc verify Timestamp does what we need it to
 		// todo ppc this might be too lax. we either need blocktime in utxoview or another way to fetch the block itself
-		if (txPrev.BlockTime().Unix()+chainParams.StakeMinAge > nTime) ||
-			(txPrevTime+chainParams.StakeMinAge > nTime) {
+		if txPrev.BlockTime().Unix()+chainParams.StakeMinAge > nTime {
 			continue // only count coins meeting min age requirement
 		}
 
@@ -336,10 +340,10 @@ func getCoinAgeTx(tx *btcutil.Tx, utxoView *UtxoViewpoint, chainParams *chaincfg
 		// txPrevIndex := txIn.PreviousOutPoint.Index
 		nValueIn := txPrev.Amount()
 		bnCentSecond.Add(bnCentSecond,
-			new(big.Int).Div(new(big.Int).Mul(big.NewInt(nValueIn), big.NewInt(nTime-txPrev.BlockTime().Unix())),
+			new(big.Int).Div(new(big.Int).Mul(big.NewInt(nValueIn), big.NewInt(nTime-txPrev.Timestamp().Unix())), // todo ppc v3
 				big.NewInt(Cent)))
 
-		log.Debugf("coin age nValueIn=%v nTimeDiff=%v bnCentSecond=%v", nValueIn, nTime-txPrev.BlockTime().Unix(), bnCentSecond.String())
+		log.Debugf("coin age nValueIn=%v nTimeDiff=%v bnCentSecond=%v", nValueIn, txPrev.Timestamp().Unix(), bnCentSecond.String()) // todo ppc v3
 	}
 
 	bnCoinDay := new(big.Int).Div(new(big.Int).Mul(bnCentSecond, big.NewInt(Cent)),
@@ -383,6 +387,7 @@ func (b *BlockChain) getCoinAgeBlock(node *blockNode, block *btcutil.Block) (uin
 // PPCGetProofOfStakeReward
 // Export requited, used my ppcwallet createCoinStake method
 func PPCGetProofOfStakeReward(nCoinAge int64) btcutil.Amount {
+	// todo ppc IsProtocolV09
 	nRewardCoinYear := Cent // creation amount per coin-year
 	nSubsidy := nCoinAge * 33 / (365*33 + 8) * nRewardCoinYear
 	log.Debugf("getProofOfStakeReward(): create=%v nCoinAge=%v", nSubsidy, nCoinAge)
@@ -391,6 +396,7 @@ func PPCGetProofOfStakeReward(nCoinAge int64) btcutil.Amount {
 
 // ppc: miner's coin stake is rewarded based on coin age spent (coin-days)
 func getProofOfStakeReward(nCoinAge int64) int64 {
+	// todo ppc IsProtocolV09
 	nRewardCoinYear := Cent // creation amount per coin-year
 	nSubsidy := nCoinAge * 33 / (365*33 + 8) * nRewardCoinYear
 	log.Debugf("getProofOfStakeReward(): create=%v nCoinAge=%v", nSubsidy, nCoinAge)
@@ -721,15 +727,14 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, utxoView *UtxoViewpoint,
 			str := fmt.Sprintf("%v stake reward value %v exceeded %v", tx.Hash(), stakeReward, maxReward)
 			return ruleError(ErrBadCoinstakeValue, str)
 		}
-		*/
 	} else {
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1249
 		// ppc: enforce transaction fees for every block
 		// if (nTxFee < GetMinFee())
 		// 	return fBlock? DoS(100, error("ConnectInputs() : %s not paying required fee=%s, paid=%s", GetHash().ToString().substr(0,10).c_str(), FormatMoney(GetMinFee()).c_str(), FormatMoney(nTxFee).c_str())) : false;
 		txFee := satoshiIn - satoshiOut
-		if txFee < getMinFee(tx) {
-			str := fmt.Sprintf("%v not paying required fee=%v, paid=%v", tx.Hash(), getMinFee(tx), txFee)
+		if txFee < getMinFee(tx, chainParams) { // todo ppc
+			str := fmt.Sprintf("%v not paying required fee=%v, paid=%v", tx.Hash(), getMinFee(tx, chainParams), txFee)
 			return ruleError(ErrInsufficientFee, str)
 		}
 	}

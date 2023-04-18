@@ -1329,6 +1329,10 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 
 	// Before we execute the main scripts, we'll also check to see if
 	// taproot is active or not.
+	if node.parent != nil && IsProtocolV12(b, node.parent) {
+		scriptFlags |= txscript.ScriptVerifyTaproot
+	}
+	/* todo ppc
 	taprootState, err := b.deploymentState(
 		node.parent, chaincfg.DeploymentTaproot,
 	)
@@ -1338,6 +1342,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	if taprootState == ThresholdActive {
 		scriptFlags |= txscript.ScriptVerifyTaproot
 	}
+	*/
 
 	// Now that the inexpensive checks are done and have passed, verify the
 	// transactions are actually allowed to spend the coins by running the
