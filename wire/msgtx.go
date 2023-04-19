@@ -472,7 +472,6 @@ func (msg *MsgTx) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error
 		// At the moment, the flag MUST be WitnessFlag (0x01). In the future
 		// other flag types may be supported.
 		if flag[0] != WitnessFlag {
-			// todo ppc
 			str := fmt.Sprintf("witness tx but flag byte is %x", flag)
 			return messageError("MsgTx.BtcDecode", str)
 		}
@@ -899,10 +898,10 @@ func (msg *MsgTx) PkScriptLocs() []int {
 	// The starting offset in the serialized transaction of the first
 	// transaction output is:
 	//
-	// Version 4 bytes + Time 4 bytes + serialized varint size for the number of
+	// Version 4 bytes + serialized varint size for the number of
 	// transaction inputs and outputs + serialized size of each transaction
 	// input.
-	n := 8 + VarIntSerializeSize(uint64(len(msg.TxIn))) +
+	n := 4 + VarIntSerializeSize(uint64(len(msg.TxIn))) +
 		VarIntSerializeSize(uint64(numTxOut))
 
 	// If this transaction has a witness input, the an additional two bytes
@@ -938,7 +937,7 @@ func (msg *MsgTx) PkScriptLocs() []int {
 func NewMsgTx(version int32) *MsgTx {
 	return &MsgTx{
 		Version:   version,
-		Timestamp: time.Unix(0, 0), // todo ppc should be passed down
+		Timestamp: time.Unix(time.Now().Unix(), 0),
 		TxIn:      make([]*TxIn, 0, defaultTxInOutAlloc),
 		TxOut:     make([]*TxOut, 0, defaultTxInOutAlloc),
 	}
@@ -1005,8 +1004,6 @@ func readTxIn(r io.Reader, pver uint32, version int32, ti *TxIn) error {
 		return err
 	}
 
-	// todo ppc. repeat the same exact read here? doesn't do anything besides advancing the pointer
-
 	ti.SignatureScript, err = readScript(r, pver, MaxMessagePayload,
 		"transaction input signature script")
 	if err != nil {
@@ -1023,8 +1020,6 @@ func writeTxIn(w io.Writer, pver uint32, version int32, ti *TxIn) error {
 	if err != nil {
 		return err
 	}
-
-	// todo ppc. repeat the same exact write here? doesn't do anything besides advancing the pointer
 
 	err = WriteVarBytes(w, pver, ti.SignatureScript)
 	if err != nil {
