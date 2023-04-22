@@ -661,8 +661,8 @@ func serializeUtxoEntry(entry *UtxoEntry) ([]byte, error) {
 	// Calculate the size needed to serialize the entry.
 	size := serializeSizeVLQ(headerCode) +
 		compressedTxOutSize(uint64(entry.Amount()), entry.PkScript()) +
-		serializeSizeVLQ(uint64(entry.Timestamp().Unix())) +
-		serializeSizeVLQ(uint64(entry.BlockTime().Unix()))
+		serializeSizeVLQ(uint64(entry.Timestamp().Unix())) + // todo ppc check type
+		serializeSizeVLQ(uint64(entry.BlockTime().Unix())) // todo ppc check type
 
 	// Serialize the header code followed by the compressed unspent
 	// transaction output, the timestamp, and the block time.
@@ -670,8 +670,8 @@ func serializeUtxoEntry(entry *UtxoEntry) ([]byte, error) {
 	offset := putVLQ(serialized, headerCode)
 	offset += putCompressedTxOut(serialized[offset:], uint64(entry.Amount()),
 		entry.PkScript())
-	offset += putVLQ(serialized[offset:], uint64(entry.Timestamp().Unix()))
-	offset += putVLQ(serialized[offset:], uint64(entry.BlockTime().Unix()))
+	offset += putVLQ(serialized[offset:], uint64(entry.Timestamp().Unix())) // todo ppc check type
+	offset += putVLQ(serialized[offset:], uint64(entry.BlockTime().Unix())) // todo ppc check type
 
 	return serialized, nil
 }
@@ -879,6 +879,8 @@ func dbPutBlockIndex(dbTx database.Tx, hash *chainhash.Hash, height int32) error
 	var serializedHeight [4]byte
 	byteOrder.PutUint32(serializedHeight[:], uint32(height))
 
+	// todo ppc handle meta?
+
 	// Add the block hash to height mapping to the index.
 	meta := dbTx.Metadata()
 	hashIndex := meta.Bucket(hashIndexBucketName)
@@ -901,6 +903,8 @@ func dbRemoveBlockIndex(dbTx database.Tx, hash *chainhash.Hash, height int32) er
 	if err := hashIndex.Delete(hash[:]); err != nil {
 		return err
 	}
+
+	// todo ppc handle meta?
 
 	// Remove the block height to hash mapping.
 	var serializedHeight [4]byte
@@ -1052,6 +1056,11 @@ func (b *BlockChain) createChainState() error {
 	genesisBlock.SetHeight(0)
 	header := &genesisBlock.MsgBlock().Header
 	node := newBlockNodePPC(header, nil, genesisBlock.Meta())
+
+	// todo ppc possibly run
+	//   i guess, since the genesis tx isn't spendable, it doesn't matter
+	// b.calcMintAndMoneySupply(node, genesisBlock)
+
 	node.status = statusDataStored | statusValid
 	b.bestChain.SetTip(node)
 
@@ -1237,6 +1246,9 @@ func (b *BlockChain) initChainState() error {
 			// todo ppc check sanity, placement.
 			//   obviously still experimental to do it here, rather than later
 			metaBuf, err := getBlkMeta(dbTx, header.BlockHash())
+			if err != nil {
+				return err
+			}
 			tempBlock := new(btcutil.Block)
 			err = tempBlock.MetaFromBytes(metaBuf)
 			if err != nil {
@@ -1381,6 +1393,17 @@ func dbFetchBlockByNode(dbTx database.Tx, node *blockNode) (*btcutil.Block, erro
 	return block, nil
 }
 
+// todo ppc (re)move
+func MetaToBytes(meta *wire.Meta) ([]byte, error) {
+	var w bytes.Buffer
+	err := meta.Serialize(&w)
+	if err != nil {
+		return nil, err
+	}
+	serializedMeta := w.Bytes()
+	return serializedMeta, nil
+}
+
 // dbStoreBlockNode stores the block header and validation status to the block
 // index bucket. This overwrites the current entry if there exists one.
 func dbStoreBlockNode(dbTx database.Tx, node *blockNode) error {
@@ -1396,7 +1419,15 @@ func dbStoreBlockNode(dbTx database.Tx, node *blockNode) error {
 		return err
 	}
 	value := w.Bytes()
-
+	// todo ppc probably move
+	sMeta, err := MetaToBytes(node.meta)
+	if err != nil {
+		return err
+	}
+	err = setBlkMeta(dbTx, &node.hash, sMeta)
+	if err != nil {
+		return err
+	}
 	// Write block header data to block index bucket.
 	blockIndexBucket := dbTx.Metadata().Bucket(blockIndexBucketName)
 	key := blockIndexKey(&node.hash, uint32(node.height))
@@ -1413,6 +1444,7 @@ func dbStoreBlock(dbTx database.Tx, block *btcutil.Block) error {
 	if hasBlock {
 		return nil
 	}
+	// todo ppc probably move
 	sMeta, err := block.MetaToBytes()
 	if err != nil {
 		return err

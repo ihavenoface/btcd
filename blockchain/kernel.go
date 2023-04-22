@@ -1052,8 +1052,12 @@ func HowSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequi
 	// todo ppc check if mainnet (900) works as expected
 	numFound := uint64(0)
 	iterNode := pstart
-	for i := uint64(0); i < nToCheck && numFound < nRequired && iterNode != nil; i++ {
+	for i := uint64(0); i < nToCheck && numFound < nRequired && iterNode != nil; {
 		if !iterNode.isProofOfStake() {
+			if iterNode.parent == nil {
+				break
+			}
+			iterNode = b.index.LookupNode(&iterNode.parent.hash)
 			continue
 		}
 
@@ -1067,10 +1071,11 @@ func HowSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequi
 		// dynamically create previous block nodes as needed.  This
 		// helps allow only the pieces of the chain that are needed
 		// to remain in memory.
-		iterNode = b.index.LookupNode(&iterNode.parent.hash)
-		if iterNode == nil {
+		if iterNode.parent == nil {
 			break
 		}
+		iterNode = b.index.LookupNode(&iterNode.parent.hash)
+		i++
 	}
 
 	return numFound

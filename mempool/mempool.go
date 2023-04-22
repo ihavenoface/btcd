@@ -1101,8 +1101,14 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 	// used later.
 	// todo ppc we currently have no way to handle utxos that are coinstake from here
 	//   -> we could add that to utxoviewpoint.go
-	txFee, err := blockchain.CheckTransactionInputs(tx, nextBlockHeight,
-		utxoView, mp.cfg.ChainParams)
+	var nTimeTx int64
+	if tx.MsgTx().Timestamp.Unix() != 0 {
+		nTimeTx = tx.MsgTx().Timestamp.Unix()
+	} else {
+		nTimeTx = time.Now().Unix()
+	}
+	txFee, err := blockchain.CheckTransactionInputs(tx, nextBlockHeight, nTimeTx,
+		utxoView, 0, mp.cfg.ChainParams) // todo ppc fetch moneySupply, could be from bestState / chaintip
 	if err != nil {
 		if cerr, ok := err.(blockchain.RuleError); ok {
 			return nil, nil, chainRuleError(cerr)

@@ -2860,6 +2860,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 
 	// If no feeEstimator has been found, or if the one that has been found
 	// is behind somehow, create a new one and start over.
+	// todo ppc remove / mask fees
 	if s.feeEstimator == nil || s.feeEstimator.LastKnownHeight() != s.chain.BestSnapshot().Height {
 		s.feeEstimator = mempool.NewFeeEstimator(
 			mempool.DefaultEstimateFeeMaxRollback,

@@ -95,8 +95,9 @@ func (t *Tx) SetIndex(index int) {
 // wire.MsgTx.  See Tx.
 func NewTx(msgTx *wire.MsgTx) *Tx {
 	return &Tx{
-		msgTx:   msgTx,
-		txIndex: TxIndexUnknown,
+		msgTx:    msgTx,
+		txIndex:  TxIndexUnknown,
+		txOffset: TxOffsetUnknown, // ppc:
 	}
 }
 
@@ -118,8 +119,9 @@ func NewTxFromReader(r io.Reader) (*Tx, error) {
 	}
 
 	t := Tx{
-		msgTx:   &msgTx,
-		txIndex: TxIndexUnknown,
+		msgTx:    &msgTx,
+		txIndex:  TxIndexUnknown,
+		txOffset: TxOffsetUnknown, // ppc:
 	}
 	return &t, nil
 }

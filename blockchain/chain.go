@@ -570,7 +570,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 
 	// ppcoin: calculate block mint and money supply
 	// todo ppc, probably incorrect
-	err := b.calcMintAndMoneySupply(node, block)
+	err := b.calcMintAndMoneySupply(node, block, prevHash)
 	if err != nil {
 		return err
 	}
@@ -622,6 +622,15 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 			return err
 		}
 
+		// todo ppc probably (re)move
+		sMeta, err := MetaToBytes(block.Meta())
+		if err != nil {
+			return err
+		}
+		err = setBlkMeta(dbTx, block.Hash(), sMeta)
+		if err != nil {
+			return err
+		}
 		// Update the utxo set using the state of the utxo view.  This
 		// entails removing all of the utxos spent and adding the new
 		// ones created by the block.
@@ -721,6 +730,7 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *btcutil.Block, view
 		newTotalTxns, prevNode.CalcPastMedianTime())
 
 	err = b.db.Update(func(dbTx database.Tx) error {
+		// todo ppc disconnect meta?
 		// Update best block state.
 		err := dbPutBestState(dbTx, state, node.workSum)
 		if err != nil {
@@ -1276,30 +1286,6 @@ func (b *BlockChain) HeaderByHash(hash *chainhash.Hash) (wire.BlockHeader, error
 	}
 
 	return node.Header(), nil
-}
-
-// todo ppc remove this
-func (b *BlockChain) HeaderByHashPPC(hash *chainhash.Hash) (wire.BlockHeader, wire.Meta, error) {
-	node := b.index.LookupNode(hash)
-	if node == nil {
-		err := fmt.Errorf("block %s is not known", hash)
-		return wire.BlockHeader{}, wire.Meta{}, err
-	}
-	/*
-		blockHash := node.hash
-		metaBuf, err := b.getBlkMeta(blockHash)
-		if err != nil {
-			return wire.BlockHeader{}, wire.Meta{}, err
-		}
-		mr := bytes.NewReader(metaBuf)
-		var meta wire.Meta
-		err = meta.Deserialize(mr)
-		if err != nil {
-			return wire.BlockHeader{}, wire.Meta{}, err
-		}
-	*/
-	// todo ppc remove this
-	return node.Header(), *node.meta, nil
 }
 
 // MainChainHasBlock returns whether or not the block with the given hash is in

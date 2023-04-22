@@ -270,6 +270,8 @@ func (msg *MsgBlock) SerializeSizeStripped() int {
 		n += tx.SerializeSizeStripped()
 	}
 
+	n += VarIntSerializeSize(uint64(len(msg.Signature))) + len(msg.Signature)
+
 	return n
 }
 

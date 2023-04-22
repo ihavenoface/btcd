@@ -42,18 +42,17 @@ func (block *Block) Meta() *wire.Meta {
 
 // MetaToBytes serializes block meta data to byte array
 func (block *Block) MetaToBytes() ([]byte, error) {
+	// todo ppc we want this functional and ideally not bound to block
+	//   ideally it would be usable on chain init
 	// Return the cached serialized bytes if it has already been generated.
 	if len(block.serializedMeta) != 0 {
 		return block.serializedMeta, nil
 	}
 
-	// Serialize the Meta.
-	var w bytes.Buffer
-	err := block.Meta().Serialize(&w)
+	serializedMeta, err := MetaToBytes(block.Meta())
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
-	serializedMeta := w.Bytes()
 
 	// Cache the serialized bytes and return them.
 	block.serializedMeta = serializedMeta
@@ -69,6 +68,28 @@ func (block *Block) MetaFromBytes(serializedMeta []byte) error {
 	}
 	block.serializedMeta = serializedMeta
 	return nil
+}
+
+// todo ppc refactor
+func MetaToBytes(meta *wire.Meta) ([]byte, error) {
+	var w bytes.Buffer
+	err := meta.Serialize(&w)
+	if err != nil {
+		return nil, err
+	}
+	serializedMeta := w.Bytes()
+	return serializedMeta, nil
+}
+
+// todo ppc refactor
+func MetaFromBytes(serializedMeta []byte) (*wire.Meta, error) {
+	mr := bytes.NewReader(serializedMeta)
+	meta := new(wire.Meta)
+	err := meta.Deserialize(mr)
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
 }
 
 // NewBlockWithMetas NewBlock returns a new instance of a bitcoin block given an underlying

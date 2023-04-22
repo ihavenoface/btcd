@@ -740,8 +740,8 @@ mempoolLoop:
 
 		// Ensure the transaction inputs pass all of the necessary
 		// preconditions before allowing it to be added to the block.
-		_, err = blockchain.CheckTransactionInputs(tx, nextBlockHeight,
-			blockUtxos, g.chainParams)
+		_, err = blockchain.CheckTransactionInputs(tx, nextBlockHeight, time.Now().Unix(),
+			blockUtxos, 0, g.chainParams) // todo ppc fetch moneySupply could be from beststate or chaintip
 		if err != nil {
 			log.Tracef("Skipping tx %s due to error in "+
 				"CheckTransactionInputs: %v", tx.Hash(), err)

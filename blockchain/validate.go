@@ -436,7 +436,7 @@ func CountP2SHSigOps(tx *btcutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint)
 // The flags do not modify the behavior of this function directly, however they
 // are needed to pass along to checkProofOfWork.
 func checkBlockHeaderSanity(msgBlock *wire.MsgBlock, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
-	if !msgBlock.IsProofOfStake() {
+	if !msgBlock.IsProofOfStake() { // todo ppc possibly remove
 		// Ensure the proof of work bits in the block header is in min/max range
 		// and the block hash is less than the target value described by the
 		// bits.
@@ -951,7 +951,7 @@ func (b *BlockChain) checkBIP0030(node *blockNode, block *btcutil.Block, view *U
 //
 // NOTE: The transaction MUST have already been sanity checked with the
 // CheckTransactionSanity function prior to calling this function.
-func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) (int64, error) {
+func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, nTimeTx int64, utxoView *UtxoViewpoint, moneySupply int64, chainParams *chaincfg.Params) (int64, error) {
 	// Coinbase transactions have no inputs.
 	if IsCoinBase(tx) {
 		return 0, nil
@@ -1044,7 +1044,7 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	}
 
 	// Peercoin checks
-	ppcErr := ppcCheckTransactionInputs(tx, utxoView,
+	ppcErr := ppcCheckTransactionInputs(tx, nTimeTx, utxoView, moneySupply,
 		totalSatoshiIn, totalSatoshiOut, chainParams)
 	if ppcErr != nil {
 		return 0, ppcErr
@@ -1198,7 +1198,13 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	// todo ppc
 	var totalFees int64
 	for _, tx := range transactions {
-		txFee, err := CheckTransactionInputs(tx, node.height, view,
+		var nTimeTx int64
+		if tx.MsgTx().Timestamp.Unix() != 0 {
+			nTimeTx = tx.MsgTx().Timestamp.Unix()
+		} else {
+			nTimeTx = node.Header().Timestamp.Unix()
+		}
+		txFee, err := CheckTransactionInputs(tx, node.height, nTimeTx, view, block.Meta().MoneySupply,
 			b.chainParams)
 		if err != nil {
 			return err
@@ -1329,9 +1335,11 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 
 	// Before we execute the main scripts, we'll also check to see if
 	// taproot is active or not.
+	/* todo ppc
 	if node.parent != nil && IsProtocolV12(b, node.parent) {
 		scriptFlags |= txscript.ScriptVerifyTaproot
 	}
+	*/
 	/* todo ppc
 	taprootState, err := b.deploymentState(
 		node.parent, chaincfg.DeploymentTaproot,
