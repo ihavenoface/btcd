@@ -1270,8 +1270,9 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 
 	// Enforce DER signatures for block versions 3+ once the historical
 	// activation threshold has been reached.  This is part of BIP0066.
-	blockHeader := &block.MsgBlock().Header
-	if blockHeader.Version >= 3 && node.height >= b.chainParams.BIP0066Height {
+	// blockHeader := &block.MsgBlock().Header
+	// todo ppc
+	if node.parent != nil && IsBTC16BIPsEnabled(b.chainParams, node.parent.timestamp) {
 		scriptFlags |= txscript.ScriptVerifyDERSignatures
 	}
 
@@ -1335,11 +1336,9 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 
 	// Before we execute the main scripts, we'll also check to see if
 	// taproot is active or not.
-	/* todo ppc
 	if node.parent != nil && IsProtocolV12(b, node.parent) {
 		scriptFlags |= txscript.ScriptVerifyTaproot
 	}
-	*/
 	/* todo ppc
 	taprootState, err := b.deploymentState(
 		node.parent, chaincfg.DeploymentTaproot,

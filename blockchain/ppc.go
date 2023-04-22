@@ -32,7 +32,8 @@ const (
 	// Coin is the number of sunnys in one peercoin
 	Coin int64 = 100 * Cent
 	// MinTxFee is the minimum transaction fee
-	MinTxFee int64 = Cent
+	MinTxFeePrev7 int64 = Cent
+	MinTxFee      int64 = Cent / 10 // todo ppc format
 	// MinRelayTxFee is the minimum relayed transaction fee
 	MinRelayTxFee int64 = Cent
 	// MaxMoney is the max number of sunnys that can be generated
@@ -770,13 +771,11 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, nTimeTx int64, utxoView *UtxoView
 		// ppc: enforce transaction fees for every block
 		// if (nTxFee < GetMinFee())
 		// 	return fBlock? DoS(100, error("ConnectInputs() : %s not paying required fee=%s, paid=%s", GetHash().ToString().substr(0,10).c_str(), FormatMoney(GetMinFee()).c_str(), FormatMoney(nTxFee).c_str())) : false;
-		/*
-			txFee := satoshiIn - satoshiOut
-			if txFee < getMinFee(tx, chainParams) { // todo ppc
-				str := fmt.Sprintf("%v not paying required fee=%v, paid=%v", tx.Hash(), getMinFee(tx, chainParams), txFee)
-				return ruleError(ErrInsufficientFee, str)
-			}
-		*/
+		txFee := satoshiIn - satoshiOut
+		if txFee < getMinFee(tx, chainParams) { // todo ppc
+			str := fmt.Sprintf("%v not paying required fee=%v, paid=%v", tx.Hash(), getMinFee(tx, chainParams), txFee)
+			return ruleError(ErrInsufficientFee, str)
+		}
 	}
 	return nil
 }
