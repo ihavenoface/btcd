@@ -931,10 +931,13 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 	// segwit isn't active yet, then we won't accept it into the mempool as
 	// it can't be mined yet.
 	if tx.MsgTx().HasWitness() {
+		/* todo ppc
 		segwitActive, err := mp.cfg.IsDeploymentActive(chaincfg.DeploymentSegwit)
 		if err != nil {
 			return nil, nil, err
 		}
+		*/
+		segwitActive := blockchain.IsBTC16BIPsEnabled(mp.cfg.ChainParams, time.Now().Unix())
 
 		if !segwitActive {
 			simnetHint := ""

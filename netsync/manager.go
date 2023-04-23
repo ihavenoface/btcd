@@ -265,11 +265,14 @@ func (sm *SyncManager) startSync() {
 	// Once the segwit soft-fork package has activated, we only
 	// want to sync from peers which are witness enabled to ensure
 	// that we fully validate all blockchain data.
+	/* todo ppc
 	segwitActive, err := sm.chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
 	if err != nil {
 		log.Errorf("Unable to query for segwit soft-fork state: %v", err)
 		return
 	}
+	*/
+	segwitActive := blockchain.IsBTC16BIPsEnabled(sm.chainParams, time.Now().Unix())
 
 	best := sm.chain.BestSnapshot()
 	var higherPeers, equalPeers []*peerpkg.Peer
@@ -357,6 +360,7 @@ func (sm *SyncManager) startSync() {
 		// and fully validate them.  Finally, regression test mode does
 		// not support the headers-first approach so do normal block
 		// downloads when in regression test mode.
+		/* todo ppc disabled headers first because we don't support the encoding yet
 		if sm.nextCheckpoint != nil &&
 			best.Height < sm.nextCheckpoint.Height &&
 			sm.chainParams != &chaincfg.RegressionNetParams {
@@ -366,9 +370,9 @@ func (sm *SyncManager) startSync() {
 			log.Infof("Downloading headers for blocks %d to "+
 				"%d from peer %s", best.Height+1,
 				sm.nextCheckpoint.Height, bestPeer.Addr())
-		} else {
+		} else {*/
 			bestPeer.PushGetBlocksMsg(locator, &zeroHash)
-		}
+		// }
 		sm.syncPeer = bestPeer
 
 		// Reset the last progress time now that we have a non-nil
@@ -401,11 +405,14 @@ func (sm *SyncManager) isSyncCandidate(peer *peerpkg.Peer) bool {
 		// The peer is not a candidate for sync if it's not a full
 		// node. Additionally, if the segwit soft-fork package has
 		// activated, then the peer must also be upgraded.
+		/* todo ppc
 		segwitActive, err := sm.chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
 		if err != nil {
 			log.Errorf("Unable to query for segwit "+
 				"soft-fork state: %v", err)
 		}
+		*/
+		segwitActive := blockchain.IsBTC16BIPsEnabled(sm.chainParams, time.Now().Unix())
 		nodeServices := peer.Services()
 		if nodeServices&wire.SFNodeNetwork != wire.SFNodeNetwork ||
 			(segwitActive && !peer.IsWitnessEnabled()) {

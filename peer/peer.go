@@ -37,7 +37,7 @@ const (
 
 	// MinAcceptableProtocolVersion is the lowest protocol version that a
 	// connected peer may support.
-	MinAcceptableProtocolVersion = wire.MultipleAddressVersion
+	MinAcceptableProtocolVersion = 70016
 
 	// outputBufferSize is the number of elements the output channels use.
 	outputBufferSize = 50

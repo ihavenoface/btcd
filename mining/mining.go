@@ -510,7 +510,7 @@ mempoolLoop:
 		// A block can't have more than one coinbase or contain
 		// non-finalized transactions.
 		tx := txDesc.Tx
-		if blockchain.IsCoinBase(tx) {
+		if blockchain.IsCoinBase(tx) { // todo ppc IsCoinStake()
 			log.Tracef("Skipping coinbase tx %s", tx.Hash())
 			continue
 		}
@@ -607,11 +607,13 @@ mempoolLoop:
 	// so then this means that we'll include any transactions with witness
 	// data in the mempool, and also add the witness commitment as an
 	// OP_RETURN output in the coinbase transaction.
-	segwitState, err := g.chain.ThresholdState(chaincfg.DeploymentSegwit)
-	if err != nil {
-		return nil, err
-	}
-	segwitActive := segwitState == blockchain.ThresholdActive
+	/*
+		segwitState, err := g.chain.ThresholdState(chaincfg.DeploymentSegwit)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	segwitActive := blockchain.IsBTC16BIPsEnabled(g.chainParams, time.Now().Unix())
 
 	witnessIncluded := false
 

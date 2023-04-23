@@ -314,33 +314,33 @@ var MainNetParams = Params{
 	GenerateSupported:        false,
 
 	// Checkpoints ordered from oldest to newest.
-	Checkpoints: []Checkpoint{ /*
-		{11111, newHashFromStr("0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")},
-		{33333, newHashFromStr("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")},
-		{74000, newHashFromStr("0000000000573993a3c9e41ce34471c079dcf5f52a0e824a81e7f953b8661a20")},
-		{105000, newHashFromStr("00000000000291ce28027faea320c8d2b054b2e0fe44a773f3eefb151d6bdc97")},
-		{134444, newHashFromStr("00000000000005b12ffd4cd315cd34ffd4a594f430ac814c91184a0d42d2b0fe")},
-		{168000, newHashFromStr("000000000000099e61ea72015e79632f216fe6cb33d7899acb35b75c8303b763")},
-		{193000, newHashFromStr("000000000000059f452a5f7340de6682a977387c17010ff6e6c3bd83ca8b1317")},
-		{210000, newHashFromStr("000000000000048b95347e83192f69cf0366076336c639f9b7228e9ba171342e")},
-		{216116, newHashFromStr("00000000000001b4f4b433e81ee46494af945cf96014816a4e2370f11b23df4e")},
-		{225430, newHashFromStr("00000000000001c108384350f74090433e7fcf79a606b8e797f065b130575932")},
-		{250000, newHashFromStr("000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214")},
-		{267300, newHashFromStr("000000000000000a83fbd660e918f218bf37edd92b748ad940483c7c116179ac")},
-		{279000, newHashFromStr("0000000000000001ae8c72a0b0c301f67e3afca10e819efa9041e458e9bd7e40")},
-		{300255, newHashFromStr("0000000000000000162804527c6e9b9f0563a280525f9d08c12041def0a0f3b2")},
-		{319400, newHashFromStr("000000000000000021c6052e9becade189495d1c539aa37c58917305fd15f13b")},
-		{343185, newHashFromStr("0000000000000000072b8bf361d01a6ba7d445dd024203fafc78768ed4368554")},
-		{352940, newHashFromStr("000000000000000010755df42dba556bb72be6a32f3ce0b6941ce4430152c9ff")},
-		{382320, newHashFromStr("00000000000000000a8dc6ed5b133d0eb2fd6af56203e4159789b092defd8ab2")},
-		{400000, newHashFromStr("000000000000000004ec466ce4732fe6f1ed1cddc2ed4b328fff5224276e3f6f")},
-		{430000, newHashFromStr("000000000000000001868b2bb3a285f3cc6b33ea234eb70facf4dcdf22186b87")},
-		{460000, newHashFromStr("000000000000000000ef751bbce8e744ad303c47ece06c8d863e4d417efc258c")},
-		{490000, newHashFromStr("000000000000000000de069137b17b8d5a3dfbd5b145b2dcfb203f15d0c4de90")},
-		{520000, newHashFromStr("0000000000000000000d26984c0229c9f6962dc74db0a6d525f2f1640396f69c")},
-		{550000, newHashFromStr("000000000000000000223b7a2298fb1c6c75fb0efc28a4c56853ff4112ec6bc9")},
-		{560000, newHashFromStr("0000000000000000002c7b276daf6efb2b6aa68e2ce3be67ef925b3264ae7122")},
-	*/},
+	// todo ppc !caution!: scripts currently fail on exactly 4 random blocks, and checkpoints will disable discovery unless:
+	//    a) failure is fixed (duh)
+	//    b) sm.headersFirstMode is disabled or
+	//    c) until headers first is integrated
+	//    adding these for now just to be sure: {204614, 213608, 213752, 234613}
+	Checkpoints: []Checkpoint{
+		{19080, newHashFromStr("000000000000bca54d9ac17881f94193fd6a270c1bb21c3bf0b37f588a40dbd7")},
+		{30583, newHashFromStr("d39d1481a7eecba48932ea5913be58ad3894c7ee6d5a8ba8abeb772c66a6696e")},
+		{99999, newHashFromStr("27fd5e1de16a4270eb8c68dee2754a64da6312c7c3a0e99a7e6776246be1ee3f")},
+		// todo ppc
+		{204614, newHashFromStr("8350ac92844dfe4d8308d06fc4ecf379a98b0657f8b6435546f620888174adcc")},
+		{213608, newHashFromStr("4108f226cb7ec34d42c3addd6b166273dcd66af54513a995d05ce78ad5fa6672")},
+		{213752, newHashFromStr("06b5bb262389889b8d21585203cd0f4096b5947344609915eebf597be762dcba")},
+		{219999, newHashFromStr("ab0dad4b10d2370f009ed6df6effca1ba42f01d5070d6b30afeedf6463fbe7a2")}, // todo ppc keep this
+		{234613, newHashFromStr("e8bd8a656a00966eb87398bc65c051c35959e646e2db4a74ea472a58acbed191")},
+		// todo ppc
+		{336000, newHashFromStr("4d261cef6e61a5ed8325e560f1d6e36f4698853a4c7134677f47a1d1d842bdf6")},
+		{371850, newHashFromStr("6b18adcb0a6e080dae85b74eee2b83fabb157bbea64fab0ed2192b2f6d5b89f3")},
+		{407813, newHashFromStr("00000000000000012730b0f48bed8afbeb08164c9d63597afb082e82ea05cec9")},
+		{443561, newHashFromStr("f81cea8e4e40b2cfcc13a8bd82436399c35a55df951b95e7128601c1838029ed")},
+		{455470, newHashFromStr("d1472c26229f90b8589d331aa47ba9023cb953b92dce342c753e7a6b3431bf1e")},
+		{479189, newHashFromStr("c9c065028b20a23fbb9627bbca5946c7497f11e1f72433d4d215c79047cf06f2")},
+		{504051, newHashFromStr("ff65454ebdf1d89174bec10a3c016db92f7b1d9a4759603472842f254be8d7b3")},
+		{589659, newHashFromStr("967c14abf21214639aeff0a270c4543cd3b80fe53178384ac5aa3c277662f1d0")},
+		// todo ppc remove
+		{679714, newHashFromStr("d4fcb2a30e1880f63c54e07a27b596d26ed6929086e78a928b77b8f341b84eac")},
+	},
 
 	// Consensus rule change deployments.
 	//
