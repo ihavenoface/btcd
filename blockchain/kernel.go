@@ -92,11 +92,7 @@ func (b *BlockChain) getLastStakeModifier(pindex *blockNode) (
 	for pindex.parent != nil && !isGeneratedStakeModifier(pindex.meta) {
 		// todo ppc replaced getPrevNodeFromNode with LookupNode throughout this file
 		//   should be checked for sanity across
-		// pindex = b.index.LookupNode(&pindex.hash)
-		pindex = b.index.LookupNode(&pindex.parent.hash)
-		if pindex == nil {
-			return
-		}
+		pindex = pindex.parent
 	}
 
 	if !isGeneratedStakeModifier(pindex.meta) {
@@ -293,8 +289,8 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	for pindex != nil && (pindex.timestamp >= nSelectionIntervalStart) {
 		vSortedByTimestamp = append(vSortedByTimestamp,
 			blockTimeHash{pindex.timestamp, &pindex.hash})
-		if pindex.parent != nil { // todo ppc meh
-			pindex = b.index.LookupNode(&pindex.parent.hash)
+		if pindex.parent != nil {
+			pindex = pindex.parent
 		} else {
 			break
 		}
@@ -1057,7 +1053,7 @@ func HowSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequi
 			if iterNode.parent == nil {
 				break
 			}
-			iterNode = b.index.LookupNode(&iterNode.parent.hash)
+			iterNode = iterNode.parent
 			continue
 		}
 
@@ -1074,7 +1070,7 @@ func HowSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequi
 		if iterNode.parent == nil {
 			break
 		}
-		iterNode = b.index.LookupNode(&iterNode.parent.hash)
+		iterNode = iterNode.parent
 		i++
 	}
 

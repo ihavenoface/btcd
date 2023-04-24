@@ -360,7 +360,8 @@ func (sm *SyncManager) startSync() {
 		// and fully validate them.  Finally, regression test mode does
 		// not support the headers-first approach so do normal block
 		// downloads when in regression test mode.
-		/* todo ppc disabled headers first because we don't support the encoding yet
+		// todo ppc disabled headers first because we don't support the encoding yet
+		// todo ppc support added for now but probably incomplete
 		if sm.nextCheckpoint != nil &&
 			best.Height < sm.nextCheckpoint.Height &&
 			sm.chainParams != &chaincfg.RegressionNetParams {
@@ -370,9 +371,9 @@ func (sm *SyncManager) startSync() {
 			log.Infof("Downloading headers for blocks %d to "+
 				"%d from peer %s", best.Height+1,
 				sm.nextCheckpoint.Height, bestPeer.Addr())
-		} else {*/
+		} else {
 			bestPeer.PushGetBlocksMsg(locator, &zeroHash)
-		// }
+		}
 		sm.syncPeer = bestPeer
 
 		// Reset the last progress time now that we have a non-nil

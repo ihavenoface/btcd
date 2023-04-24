@@ -102,7 +102,7 @@ func (b *BlockChain) getBlockNode(hash *chainhash.Hash) (*blockNode, error) {
 
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L894
 // ppc: find last block index up to pindex
-func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (block *blockNode) {
+func (b *BlockChain) getLastBlockIndex(pindex *blockNode, fProofOfStake bool) (block *blockNode) {
 
 	/*
 		if last == nil {
@@ -112,24 +112,10 @@ func (b *BlockChain) getLastBlockIndex(last *blockNode, proofOfStake bool) (bloc
 		}
 	*/
 
-	block = last
-	for true {
-		if block == nil {
-			break
-		}
-		// TODO dirty workaround, ppcoin doesn't point to genesis block
-		if block.height == 0 {
-			break
-		}
-		if block.parent == nil {
-			break
-		}
-		if block.isProofOfStake() == proofOfStake {
-			break
-		}
-		block = b.index.LookupNode(&block.parent.hash)
+	for pindex != nil && pindex.parent != nil && pindex.isProofOfStake() != fProofOfStake {
+		pindex = pindex.parent
 	}
-	return block
+	return pindex
 }
 
 // calcNextRequiredDifficulty calculates the required difficulty for the block
@@ -150,7 +136,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 	if prev.hash.IsEqual(b.chainParams.GenesisHash) {
 		return b.chainParams.InitialHashTargetBits, nil // first block
 	}
-	prevParent := b.index.LookupNode(&prev.parent.hash)
+	prevParent := prev.parent
 	prevPrev := b.getLastBlockIndex(prevParent, proofOfStake)
 	if prevPrev.hash.IsEqual(b.chainParams.GenesisHash) {
 		return b.chainParams.InitialHashTargetBits, nil // second block
@@ -424,7 +410,7 @@ func getProofOfStakeReward(chainParams *chaincfg.Params, nTime int64, nCoinAge i
 		nInflationAdjustment := bnInflationAdjustment.Int64()
 		nSubsidyNew := (nSubsidy * 3) + nInflationAdjustment
 
-		log.Debugf("getProofOfStakeReward(): money supply %ld, inflation adjustment %f, old subsidy %ld, new subsidy %ld\n", moneySupply, nInflationAdjustment/1000000.0, nSubsidy, nSubsidyNew)
+		log.Debugf("getProofOfStakeReward(): money supply %v, inflation adjustment %v, old subsidy %v, new subsidy %v\n", moneySupply, nInflationAdjustment/1000000.0, nSubsidy, nSubsidyNew)
 
 		nSubsidy = nSubsidyNew
 	}
