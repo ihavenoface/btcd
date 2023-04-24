@@ -67,7 +67,7 @@ func getStakeEntropyBit(b *BlockChain, block *btcutil.Block) (uint32, error) {
 	nEntropyBit := uint32(0)
 	hash := block.Hash()
 
-	if isProtocolV04(b, int64(block.MsgBlock().Header.Timestamp.Unix())) {
+	if IsProtocolV04(b.chainParams, block.MsgBlock().Header.Timestamp.Unix()) {
 
 		nEntropyBit = uint32((HashToBig(hash).Int64()) & 1) // last bit of block hash
 
@@ -110,32 +110,21 @@ func getStakeModifierCSHexString(stakeModifierCS uint32) string {
 	return hex.EncodeToString(bytes)
 }
 
-// isProtocolV03
-func isProtocolV03(b *BlockChain, nTime int64) bool {
-	var switchTime int64
-	if b.chainParams.Name == "testnet3" {
-		switchTime = nProtocolV03TestSwitchTime
+// IsProtocolV03
+func IsProtocolV03(chainParams *chaincfg.Params, nTime int64) bool {
+	var v03switchTime int64
+	if chainParams == &chaincfg.TestNet3Params {
+		v03switchTime = nProtocolV03TestSwitchTime
 	} else {
-		switchTime = nProtocolV03SwitchTime
+		v03switchTime = nProtocolV03SwitchTime
 	}
-	return nTime >= switchTime
+	return nTime >= v03switchTime
 }
 
-// isProtocolV03FromParams
-func isProtocolV03FromParams(params *chaincfg.Params, nTime int64) bool {
-	var switchTime int64
-	if params.Name == "testnet3" {
-		switchTime = nProtocolV03TestSwitchTime
-	} else {
-		switchTime = nProtocolV03SwitchTime
-	}
-	return nTime >= switchTime
-}
-
-// isProtocolV04
-func isProtocolV04(b *BlockChain, nTime int64) bool {
+// IsProtocolV04
+func IsProtocolV04(chainParams *chaincfg.Params, nTime int64) bool {
 	var v04SwitchTime int64
-	if b.chainParams.Name == "testnet3" {
+	if chainParams == &chaincfg.TestNet3Params {
 		v04SwitchTime = nProtocolV04TestSwitchTime
 	} else {
 		v04SwitchTime = nProtocolV04SwitchTime
@@ -143,9 +132,9 @@ func isProtocolV04(b *BlockChain, nTime int64) bool {
 	return nTime >= v04SwitchTime
 }
 
-func isProtocolV05(b *BlockChain, nTime int64) bool {
+func IsProtocolV05(chainParams *chaincfg.Params, nTime int64) bool {
 	var v05SwitchTime int64
-	if b.chainParams.Name == "testnet3" {
+	if chainParams == &chaincfg.TestNet3Params {
 		v05SwitchTime = nProtocolV05TestSwitchTime
 	} else {
 		v05SwitchTime = nProtocolV05SwitchTime
@@ -153,15 +142,14 @@ func isProtocolV05(b *BlockChain, nTime int64) bool {
 	return nTime >= v05SwitchTime
 }
 
-func IsProtocolV06(b *BlockChain, pindexPrev *blockNode) bool {
-	// todo ppc this is unused atm
-	var switchTime int64
-	if b.chainParams.Name == "testnet3" {
-		switchTime = nProtocolV06TestSwitchTime
+func IsProtocolV06(chainParams *chaincfg.Params, pindexPrev *blockNode) bool {
+	var v06SwitchTime int64
+	if chainParams == &chaincfg.TestNet3Params {
+		v06SwitchTime = nProtocolV06TestSwitchTime
 	} else {
-		switchTime = nProtocolV06SwitchTime
+		v06SwitchTime = nProtocolV06SwitchTime
 	}
-	if pindexPrev.timestamp < switchTime {
+	if pindexPrev.timestamp < v06SwitchTime {
 		return false
 	}
 
@@ -169,9 +157,8 @@ func IsProtocolV06(b *BlockChain, pindexPrev *blockNode) bool {
 	// Soft-forking PoS can be dangerous if the super majority is too low
 	// The stake majority will decrease after the fork
 	// since only coindays of updated nodes will get destroyed.
-	// todo ppc check if mainnet (900) works as expected
-	if (b.chainParams.Name == "mainnet" && IsSuperMajority(b, 2, pindexPrev, 900, 1000)) ||
-		(b.chainParams.Name != "mainnet" && IsSuperMajority(b, 2, pindexPrev, 90, 100)) {
+	if (chainParams == &chaincfg.MainNetParams && IsSuperMajority(2, pindexPrev, 900, 1000)) ||
+		(chainParams != &chaincfg.MainNetParams && IsSuperMajority(2, pindexPrev, 90, 100)) {
 		return true
 	}
 
@@ -181,7 +168,7 @@ func IsProtocolV06(b *BlockChain, pindexPrev *blockNode) bool {
 // Whether a given transaction is subject to new v0.7 protocol
 func IsProtocolV07(chainParams *chaincfg.Params, nTime int64) bool {
 	var v07SwitchTime int64
-	if chainParams.Name == "testnet3" {
+	if chainParams == &chaincfg.TestNet3Params {
 		v07SwitchTime = nProtocolV07TestSwitchTime
 	} else {
 		v07SwitchTime = nProtocolV07SwitchTime
@@ -191,7 +178,7 @@ func IsProtocolV07(chainParams *chaincfg.Params, nTime int64) bool {
 
 func IsBTC16BIPsEnabled(chainParams *chaincfg.Params, nTime int64) bool {
 	var nBTC16SwitchTime int64
-	if chainParams.Name == "testnet3" {
+	if chainParams == &chaincfg.TestNet3Params {
 		nBTC16SwitchTime = nBTC16BIPsTestSwitchTime
 	} else {
 		nBTC16SwitchTime = nBTC16BIPsSwitchTime
@@ -202,7 +189,7 @@ func IsBTC16BIPsEnabled(chainParams *chaincfg.Params, nTime int64) bool {
 // Whether a given transaction is subject to new v0.9 protocol
 func IsProtocolV09(chainParams *chaincfg.Params, nTime int64) bool {
 	var v09SwitchTime int64
-	if chainParams.Name == "testnet3" {
+	if chainParams == &chaincfg.TestNet3Params {
 		v09SwitchTime = nProtocolV09TestSwitchTime
 	} else {
 		v09SwitchTime = nProtocolV09SwitchTime
@@ -213,7 +200,7 @@ func IsProtocolV09(chainParams *chaincfg.Params, nTime int64) bool {
 // Whether a given timestamp is subject to new v10 protocol
 func IsProtocolV10(chainParams *chaincfg.Params, nTime int64) bool {
 	var v10SwitchTime int64
-	if chainParams.Name == "testnet3" {
+	if chainParams == &chaincfg.TestNet3Params {
 		v10SwitchTime = nProtocolV10TestSwitchTime
 	} else {
 		v10SwitchTime = nProtocolV10SwitchTime
@@ -221,10 +208,10 @@ func IsProtocolV10(chainParams *chaincfg.Params, nTime int64) bool {
 	return nTime >= v10SwitchTime
 }
 
-func IsProtocolV12(b *BlockChain, pindexPrev *blockNode) bool {
+func IsProtocolV12(chainParams *chaincfg.Params, pindexPrev *blockNode) bool {
 	// todo ppc this is unused atm
 	var switchTime int64
-	if b.chainParams.Name == "testnet3" {
+	if chainParams == &chaincfg.TestNet3Params {
 		switchTime = nProtocolV12TestSwitchTime
 	} else {
 		switchTime = nProtocolV12SwitchTime
@@ -237,9 +224,8 @@ func IsProtocolV12(b *BlockChain, pindexPrev *blockNode) bool {
 	// Soft-forking PoS can be dangerous if the super majority is too low
 	// The stake majority will decrease after the fork
 	// since only coindays of updated nodes will get destroyed.
-	// todo ppc check if mainnet (900) works as expected
-	if (b.chainParams.Name == "mainnet" && IsSuperMajority(b, 4, pindexPrev, 900, 1000)) ||
-		(b.chainParams.Name != "mainnet" && IsSuperMajority(b, 4, pindexPrev, 90, 100)) {
+	if (chainParams == &chaincfg.MainNetParams && IsSuperMajority(4, pindexPrev, 900, 1000)) ||
+		(chainParams != &chaincfg.MainNetParams && IsSuperMajority(4, pindexPrev, 90, 100)) {
 		return true
 	}
 

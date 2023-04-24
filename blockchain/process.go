@@ -256,5 +256,14 @@ func (b *BlockChain) ProcessBlock(block *btcutil.Block, flags BehaviorFlags) (bo
 
 	log.Debugf("Accepted block %v", blockHash)
 
+	/* todo ppc add
+	   if (pindex->IsProofOfStake() && !ActiveChainstate().IsInitialBlockDownload()) {
+	       int32_t ndx = univHash(pindex->hashProofOfStake);
+	       if (fPoSDuplicate && vStakeSeen[ndx] == pindex->hashProofOfStake)
+	           *fPoSDuplicate = true;
+	       vStakeSeen[ndx] = pindex->hashProofOfStake;
+	   }
+	*/
+
 	return isMainChain, false, nil
 }

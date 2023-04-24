@@ -428,10 +428,19 @@ var MainNetParams = Params{
 	InitialHashTargetBits: 0x1c00ffff,
 	ModifierInterval:      6 * 60 * 60, // Set to 6-hour for production network and 20-minute for test network
 	StakeModifierCheckpoints: map[int32]uint32{
-		0:     uint32(0x0e00670b),
-		19080: uint32(0xad4e4d29),
-		30583: uint32(0xdc7bf136),
-		99999: uint32(0xf555cfd2),
+		0:      uint32(0x0e00670b),
+		19080:  uint32(0xad4e4d29),
+		30583:  uint32(0xdc7bf136),
+		99999:  uint32(0xf555cfd2),
+		219999: uint32(0x91b7444d),
+		336000: uint32(0x6c3c8048),
+		371850: uint32(0x9b850bdf),
+		407813: uint32(0x46fe50b5),
+		443561: uint32(0x114a6e38),
+		455470: uint32(0x9b7af181),
+		479189: uint32(0xe04fb8e0),
+		504051: uint32(0x459f5a16),
+		589659: uint32(0xbd02492a),
 	},
 }
 
@@ -680,12 +689,18 @@ var TestNet3Params = Params{
 	ModifierInterval:      60 * 20, // test net modifier interval is 20 minutes
 	// todo ppc looks about right
 	StakeModifierCheckpoints: map[int32]uint32{
-		0:     uint32(0x0e00670b),
-		1:     uint32(0xbc4b99b6),
-		401:   uint32(0xd11e2638),
-		19080: uint32(0x3711dc3a),
-		30583: uint32(0xb480fade),
-		99999: uint32(0x9a62eaec),
+		0:      uint32(0x0e00670b),
+		19080:  uint32(0x3711dc3a),
+		30583:  uint32(0xb480fade),
+		99999:  uint32(0x9a62eaec),
+		219999: uint32(0xeafe96c3),
+		336000: uint32(0x8330dc09),
+		372751: uint32(0xafb94e2f),
+		382019: uint32(0x7f5cf5eb),
+		408500: uint32(0x68cadee2),
+		412691: uint32(0x93138e67),
+		441299: uint32(0x03e195cb),
+		442735: uint32(0xe42d94fe),
 	},
 }
 

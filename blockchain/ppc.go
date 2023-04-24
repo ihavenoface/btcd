@@ -74,32 +74,6 @@ func getProofOfStakeFromBlock(block *btcutil.Block) Stake {
 
 var stakeSeen, stakeSeenOrphan = make(map[Stake]bool), make(map[Stake]bool)
 
-// getBlockNode try to obtain a node form the memory block chain and loads it
-// form the database in not found in memory.
-func (b *BlockChain) getBlockNode(hash *chainhash.Hash) (*blockNode, error) {
-
-	// Return the existing previous block node if it's already there.
-	/*if bn, ok := b.index.LookupNode(hash); ok {
-		return bn, nil
-	}*/
-
-	bn := b.index.LookupNode(hash)
-	if bn != nil {
-		return bn, nil
-	}
-
-	// Dynamically load the previous block from the block database, create
-	// a new block node for it, and update the memory chain accordingly.
-	// todo ppc
-	/*prevBlockNode, err := b.loadBlockNode(hash)
-	if err != nil {
-		return nil, err
-	}
-	return prevBlockNode, nil
-	*/
-	return bn, nil
-}
-
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L894
 // ppc: find last block index up to pindex
 func (b *BlockChain) getLastBlockIndex(pindex *blockNode, fProofOfStake bool) (block *blockNode) {
@@ -145,7 +119,7 @@ func (b *BlockChain) ppcCalcNextRequiredDifficulty(lastNode *blockNode, proofOfS
 	actualSpacing := prev.timestamp - prevPrev.timestamp
 
 	nHypotheticalSpacing := lastNode.timestamp - prev.timestamp
-	if !proofOfStake && IsProtocolV12(b, prev) && (nHypotheticalSpacing > actualSpacing) {
+	if !proofOfStake && IsProtocolV12(b.chainParams, prev) && (nHypotheticalSpacing > actualSpacing) {
 		actualSpacing = nHypotheticalSpacing
 	}
 
@@ -683,14 +657,17 @@ func CheckBlockSignature(msgBlock *wire.MsgBlock,
 	return sig.Verify(hash[:], a.PubKey())
 }
 
+/* todo ppc this is used upstream
+     we don't really need it
 func IsZeroAllowed(nTimeTx int64) bool {
 	return nTimeTx >= 1447700000 // very crude approximation to prevent linking with kernel.cpp
 }
+*/
 
 // Peercoin additional context free transaction checks.
 // Basing on CTransaction::CheckTransaction().
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L445
-func ppcCheckTransactionSanity(tx *btcutil.Tx) error { // todo ppc add more rules where needed
+func ppcCheckTransactionSanity(chainParams *chaincfg.Params, tx *btcutil.Tx) error { // todo ppc add more rules where needed
 	msgTx := tx.MsgTx()
 	for _, txOut := range msgTx.TxOut {
 		// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L461
@@ -706,7 +683,7 @@ func ppcCheckTransactionSanity(tx *btcutil.Tx) error { // todo ppc add more rule
 		// if ((!txout.IsEmpty()) && txout.nValue < MIN_TXOUT_AMOUNT)
 		// 	return DoS(100, error("CTransaction::CheckTransaction() : txout.nValue below minimum"));
 		if (!txOut.IsEmpty()) && txOut.Value < MinTxOutAmount &&
-			(msgTx.Version < 3 && !(IsZeroAllowed(msgTx.Timestamp.Unix()) && txOut.Value == 0)) {
+			(msgTx.Version < 3 && !(IsProtocolV05(chainParams, msgTx.Timestamp.Unix()) && txOut.Value == 0)) {
 			str := fmt.Sprintf("transaction output value of %v is below minimum %v",
 				txOut.Value, MinTxOutAmount)
 			return ruleError(ErrBadTxOutValue, str)

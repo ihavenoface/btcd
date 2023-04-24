@@ -203,7 +203,7 @@ func CalcBlockSubsidy(height int32, chainParams *chaincfg.Params) int64 {
 
 // CheckTransactionSanity performs some preliminary checks on a transaction to
 // ensure it is sane.  These checks are context free.
-func CheckTransactionSanity(tx *btcutil.Tx) error {
+func CheckTransactionSanity(chainParams *chaincfg.Params, tx *btcutil.Tx) error {
 	// A transaction must have at least one input.
 	msgTx := tx.MsgTx()
 	if len(msgTx.TxIn) == 0 {
@@ -296,8 +296,8 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 	}
 
 	// Peercoin - sanity checks
-	// todo ppc implement v3
-	ppcErr := ppcCheckTransactionSanity(tx)
+	// todo ppc re-check
+	ppcErr := ppcCheckTransactionSanity(chainParams, tx)
 	if ppcErr != nil {
 		return ppcErr
 	}
@@ -525,7 +525,7 @@ func checkBlockSanity(block *btcutil.Block, chainParams *chaincfg.Params, timeSo
 	// Do some preliminary checks on each transaction to ensure they are
 	// sane before continuing.
 	for _, tx := range transactions {
-		err := CheckTransactionSanity(tx)
+		err := CheckTransactionSanity(chainParams, tx)
 		if err != nil {
 			return err
 		}
@@ -742,8 +742,8 @@ func (b *BlockChain) checkBlockHeaderContext(chainParams *chaincfg.Params, heade
 	//        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, strprintf("bad-version(0x%08x)", block.nVersion),
 	//                             strprintf("rejected nVersion=0x%08x block", block.nVersion));
 	// todo ppc verify
-	if header.Version < 2 && IsProtocolV06(b, prevNode) ||
-		header.Version < 4 && IsProtocolV12(b, prevNode) {
+	if header.Version < 2 && IsProtocolV06(b.chainParams, prevNode) ||
+		header.Version < 4 && IsProtocolV12(b.chainParams, prevNode) {
 		str := fmt.Sprintf("bad block version=%s at height %d", header.Version, blockHeight)
 		return ruleError(ErrInvalidHeader, str)
 	}
@@ -831,7 +831,7 @@ func (b *BlockChain) checkBlockContext(block *btcutil.Block, prevNode *blockNode
 		//         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-height", "block height mismatch in coinbase");
 		//     }
 		// }
-		if prevNode != nil && IsProtocolV06(b, prevNode) && block.MsgBlock().Header.Version >= 2 {
+		if prevNode != nil && IsProtocolV06(b.chainParams, prevNode) && block.MsgBlock().Header.Version >= 2 {
 			expect, err := txscript.NewScriptBuilder().AddInt64(int64(blockHeight)).Script()
 			if err != nil {
 				return err
@@ -1283,7 +1283,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	}
 
 	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-	if IsProtocolV06(b, node.parent) {
+	if IsProtocolV06(b.chainParams, node.parent) {
 		scriptFlags |= txscript.ScriptVerifyCheckLockTimeVerify
 	}
 
@@ -1344,7 +1344,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 
 	// Before we execute the main scripts, we'll also check to see if
 	// taproot is active or not.
-	if node.parent != nil && IsProtocolV12(b, node.parent) {
+	if node.parent != nil && IsProtocolV12(b.chainParams, node.parent) {
 		scriptFlags |= txscript.ScriptVerifyTaproot
 	}
 	/* todo ppc
@@ -1359,7 +1359,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	}
 	*/
 
-	if b.chainParams.Name == "mainnet" {
+	if b.chainParams == &chaincfg.MainNetParams {
 		// todo ppc for reasons not immediately obvious to me, these blocks fail (script only) verification, so i'm skipping them for now.
 		//    should this indicate a deeper issue, the node will fail and start rejecting newer blocks
 		//    this can probably be fixed by enabling checkpoints, although its weird this is happening in the first place

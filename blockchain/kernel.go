@@ -267,7 +267,7 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	pindexCurrentHeader := pindexCurrent.MsgBlock().Header
 	if (nModifierTime / b.chainParams.ModifierInterval) >= (pindexCurrentHeader.Timestamp.Unix() / b.chainParams.ModifierInterval) {
 		// v0.4+ requires current block timestamp also be in a different modifier interval
-		if isProtocolV04(b, pindexCurrentHeader.Timestamp.Unix()) {
+		if IsProtocolV04(b.chainParams, pindexCurrentHeader.Timestamp.Unix()) {
 			log.Debugf("computeNextStakeModifier: (v0.4+) no new interval keep current modifier: pindexCurrent nHeight=%d nTime=%d", pindexCurrent.Height(), pindexCurrentHeader.Timestamp.Unix())
 			return
 		}
@@ -589,7 +589,7 @@ func (b *BlockChain) getKernelStakeModifier(
 	hashBlockFrom *chainhash.Hash, timeSource MedianTimeSource, nTimeTx int64, fPrintProofOfStake bool) (
 	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
 	err error) {
-	if isProtocolV05(b, nTimeTx) {
+	if IsProtocolV05(b.chainParams, nTimeTx) {
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifierV05(hashBlockFrom, nTimeTx, fPrintProofOfStake)
 	} else {
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifier03(hashBlockFrom, timeSource, fPrintProofOfStake)
@@ -662,7 +662,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	// this change increases active coins participating the hash and helps
 	// to secure the network when proof-of-stake difficulty is low
 	var timeReduction int64
-	if isProtocolV03(b, nTimeTx) {
+	if IsProtocolV03(b.chainParams, nTimeTx) {
 		timeReduction = b.chainParams.StakeMinAge
 	} else {
 		timeReduction = 0
@@ -686,7 +686,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	var nStakeModifier uint64
 	var nStakeModifierHeight int32
 	var nStakeModifierTime int64
-	if isProtocolV03(b, nTimeTx) { // v0.3 protocol
+	if IsProtocolV03(b.chainParams, nTimeTx) { // v0.3 protocol
 		var blockFromHash *chainhash.Hash
 		blockFromHash = blockFrom.Hash()
 		// todo ppc
@@ -747,7 +747,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	}
 
 	if fPrintProofOfStake {
-		if isProtocolV03(b, nTimeTx) {
+		if IsProtocolV03(b.chainParams, nTimeTx) {
 			// todo ppc update log v05
 			log.Debugf("checkStakeKernelHash() : using modifier %d at height=%d timestamp=%s for block from height=%d timestamp=%s",
 				nStakeModifier, nStakeModifierHeight,
@@ -757,7 +757,7 @@ func (b *BlockChain) checkStakeKernelHash(
 		var ver string
 		var modifier uint64
 		// todo ppc update log v05
-		if isProtocolV03(b, nTimeTx) {
+		if IsProtocolV03(b.chainParams, nTimeTx) {
 			ver = "0.3"
 			modifier = nStakeModifier
 		} else {
@@ -780,7 +780,7 @@ func (b *BlockChain) checkStakeKernelHash(
 	}
 	//if (fDebug && !fPrintProofOfStake) {
 	if !fPrintProofOfStake {
-		if isProtocolV03(b, nTimeTx) {
+		if IsProtocolV03(b.chainParams, nTimeTx) {
 			log.Debugf("checkStakeKernelHash() : using modifier %d at height=%d timestamp=%s for block from height=%d timestamp=%s\n",
 				nStakeModifier, nStakeModifierHeight,
 				dateTimeStrFormat(nStakeModifierTime), blockFrom.Height(),
@@ -788,7 +788,7 @@ func (b *BlockChain) checkStakeKernelHash(
 		}
 		var ver string
 		var modifier uint64
-		if isProtocolV03(b, nTimeTx) {
+		if IsProtocolV03(b.chainParams, nTimeTx) {
 			ver = "0.3"
 			modifier = nStakeModifier
 		} else {
@@ -953,17 +953,17 @@ func (b *BlockChain) checkBlockProofOfStake(block *btcutil.Block, timeSource Med
 func (b *BlockChain) checkCoinStakeTimestamp(
 	nTimeBlock int64, nTimeTx int64) bool {
 
-	if isProtocolV03(b, nTimeTx) { // v0.3 protocol
+	if IsProtocolV03(b.chainParams, nTimeTx) { // v0.3 protocol
 		return nTimeBlock == nTimeTx
 	}
 	// v0.2 protocol
 	return (nTimeTx <= nTimeBlock) && (nTimeBlock <= nTimeTx+MaxFutureBlockTimePrev09)
 }
 
-func checkCoinStakeTimestamp(params *chaincfg.Params,
+func checkCoinStakeTimestamp(chainParams *chaincfg.Params,
 	nTimeBlock int64, nTimeTx int64) bool {
 
-	if isProtocolV03FromParams(params, nTimeTx) { // v0.3 protocol
+	if IsProtocolV03(chainParams, nTimeTx) { // v0.3 protocol
 		return nTimeBlock == nTimeTx
 	}
 	// v0.2 protocol
@@ -1040,11 +1040,11 @@ func (b *BlockChain) checkStakeModifierCheckpoints(
 	return true
 }
 
-func IsSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) bool {
-	return HowSuperMajority(b, minVersion, pstart, nRequired, nToCheck) >= nRequired
+func IsSuperMajority(minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) bool {
+	return HowSuperMajority(minVersion, pstart, nRequired, nToCheck) >= nRequired
 }
 
-func HowSuperMajority(b *BlockChain, minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) uint64 {
+func HowSuperMajority(minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) uint64 {
 	// todo ppc check if mainnet (900) works as expected
 	numFound := uint64(0)
 	iterNode := pstart
