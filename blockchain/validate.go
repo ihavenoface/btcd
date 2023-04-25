@@ -437,7 +437,9 @@ func CountP2SHSigOps(tx *btcutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint)
 // The flags do not modify the behavior of this function directly, however they
 // are needed to pass along to checkProofOfWork.
 func checkBlockHeaderSanity(msgBlock *wire.MsgBlock, powLimit *big.Int, timeSource MedianTimeSource, flags BehaviorFlags) error {
-	if !msgBlock.IsProofOfStake() { // todo ppc possibly remove
+	// todo ppc possibly remove
+	//   we're currently double checking via checkBlockSanity()
+	if !msgBlock.IsProofOfStake() {
 		// Ensure the proof of work bits in the block header is in min/max range
 		// and the block hash is less than the target value described by the
 		// bits.
@@ -505,6 +507,16 @@ func checkBlockSanity(block *btcutil.Block, chainParams *chaincfg.Params, timeSo
 		str := fmt.Sprintf("serialized block is too big - got %d, "+
 			"max %d", serializedSize, MaxBlockBaseSize)
 		return ruleError(ErrBlockTooBig, str)
+	}
+
+	if !msgBlock.IsProofOfStake() { // ppc: peercoin specific
+		// Ensure the proof of work bits in the block header is in min/max range
+		// and the block hash is less than the target value described by the
+		// bits.
+		err := checkProofOfWork(header, chainParams.PowLimit, flags)
+		if err != nil {
+			return err
+		}
 	}
 
 	// The first transaction in a block must be a coinbase.
@@ -664,7 +676,7 @@ func (b *BlockChain) checkBlockHeaderContext(chainParams *chaincfg.Params, heade
 		// Ensure the difficulty specified in the block header matches
 		// the calculated difficulty based on the previous block and
 		// difficulty retarget rules.
-		/* todo ppc
+		/* todo ppc -> header doesn't know when it's pos or not just yet
 		expectedDifficulty, err := b.calcNextRequiredDifficulty(prevNode,
 			header.Timestamp)
 		if err != nil {
@@ -1029,6 +1041,8 @@ func CheckTransactionInputs(tx *btcutil.Tx, txHeight int32, nTimeTx int64, utxoV
 		if ppcErr != nil {
 			return 0, ppcErr
 		}
+
+		// todo ppc spend tx?
 	}
 
 	// Calculate the total output amount for this transaction.  It is safe

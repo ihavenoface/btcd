@@ -224,7 +224,11 @@ func (b *Block) TxLoc() ([]wire.TxLoc, error) {
 	// ppc: initializing meta offsets
 	b.meta.TxOffsets = make([]uint32, len(txLocs))
 	for i, txLoc := range txLocs {
-		b.meta.TxOffsets[i] = uint32(txLoc.TxStart)
+		// todo ppc offsets are advanced by 4 because we're reading nFlags from header twice
+		//  one time of which is redundant
+		//  until this issue is resolved i'm moving the tx offset back by 4 manually so that the
+		//  stored data still works as intended
+		b.meta.TxOffsets[i] = uint32(txLoc.TxStart) - 4
 	}
 
 	return txLocs, err

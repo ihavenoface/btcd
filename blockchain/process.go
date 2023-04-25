@@ -114,6 +114,9 @@ func (b *BlockChain) processOrphans(hash *chainhash.Hash, flags BehaviorFlags) e
 			b.removeOrphanBlock(orphan)
 			i--
 
+			// ppc: processing
+			b.ppcOrphanBlockRemoved(orphan.block)
+
 			// Potentially accept the block into the block chain.
 			_, err := b.maybeAcceptBlock(orphan.block, flags)
 			if err != nil {

@@ -715,8 +715,6 @@ func (b *BlockChain) checkStakeKernelHash(
 	if err != nil {
 		return
 	}
-	// todo ppc the info we get from meta is off by 4 currently
-	nTxPrevOffset = nTxPrevOffset - 4
 	err = writeElement(buf, nTxPrevOffset)
 	bufSize += 4
 	if err != nil {
@@ -807,7 +805,6 @@ func (b *BlockChain) checkStakeKernelHash(
 // Check kernel hash target and coinstake signature
 func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, timeSource MedianTimeSource, nBits uint32, blockTime time.Time) (
 	hashProofOfStake *chainhash.Hash, err error) {
-	// todo ppc possibly run lock
 	// todo ppc (important): re-check when exactly the input tx needs to be marked as spent
 	//   right now i'm not sure if the rest of the system picks up on the coinbase usage at all
 	//   this shouldn't happen here, but only after the block has been accepted
@@ -872,6 +869,7 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, 
 	}
 	*/
 
+	// todo ppc this can be reworked using utxoview
 	prevBlock, err := b.BlockByHeight(txPrevData.BlockHeight())
 	if err != nil {
 		err = fmt.Errorf("CheckProofOfStake() : read block failed (%v)", err) // unable to read block of previous transaction
