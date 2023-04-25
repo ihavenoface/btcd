@@ -139,6 +139,7 @@ func (m *Meta) Deserialize(r io.Reader) error {
 // https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.h#L528
 // ppc: the coin stake transaction is marked with the first output empty
 func (msg *MsgTx) IsCoinStake() bool {
+	// todo ppc possibly update
 	return len(msg.TxIn) > 0 &&
 		(!(msg.TxIn[0].PreviousOutPoint.Hash.IsEqual(&chainhash.Hash{}) &&
 			msg.TxIn[0].PreviousOutPoint.Index == MaxPrevOutIndex)) &&

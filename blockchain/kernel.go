@@ -805,9 +805,13 @@ func (b *BlockChain) checkStakeKernelHash(
 }
 
 // Check kernel hash target and coinstake signature
-func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSource, nBits uint32, blockTime time.Time) (
+func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, timeSource MedianTimeSource, nBits uint32, blockTime time.Time) (
 	hashProofOfStake *chainhash.Hash, err error) {
 	// todo ppc possibly run lock
+	// todo ppc (important): re-check when exactly the input tx needs to be marked as spent
+	//   right now i'm not sure if the rest of the system picks up on the coinbase usage at all
+	//   this shouldn't happen here, but only after the block has been accepted
+	//   probably needs view.connectTransaction()
 
 	// b.chainLock.RLock()
 	// defer b.chainLock.RUnlock()
@@ -825,18 +829,10 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSo
 	txin := msgTx.TxIn[0]
 
 	// First try finding the previous transaction in database
-	// todo ppc ProcessBlock() holds lock. re-do lock order or avoid FetchUtxoView
-	// todo ppc we might be able to pass in dbTx
-	b.chainLock.Unlock()
-	utxoView, err := b.FetchUtxoView(tx)
-	b.chainLock.Lock()
-	if err != nil {
-		return
-	}
 	// todo ppc possibly assign
 	// var prevBlockHeight int64
 
-	txPrevData := utxoView.LookupEntry(txin.PreviousOutPoint)
+	txPrevData := inputs.LookupEntry(txin.PreviousOutPoint)
 	if txPrevData == nil { // todo ppc does this work?
 		//return tx.DoS(1, error("CheckProofOfStake() : INFO: read txPrev failed"))  // previous transaction not in main chain, may occur during initial download
 		// todo ppc check if we're generating the error properly
@@ -847,7 +843,7 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, timeSource MedianTimeSo
 	// prevBlockHeight = txPrevData.BlockHeight
 
 	// Verify signature
-	errVerif := b.verifySignature(utxoView, txin, tx, 0, true, 0)
+	errVerif := b.verifySignature(inputs, txin, tx, 0, true, 0)
 	if errVerif != nil {
 		//return tx.DoS(100, error("CheckProofOfStake() : VerifySignature failed on coinstake %s", tx.Sha().String()))
 		err = fmt.Errorf("CheckProofOfStake() : VerifySignature failed on coinstake %s (%v)", tx.Hash().String(), errVerif)
@@ -932,8 +928,14 @@ func (b *BlockChain) checkBlockProofOfStake(block *btcutil.Block, timeSource Med
 			return err
 		}
 
+		inputs := NewUtxoViewpoint()
+		err = inputs.fetchInputUtxos(b.db, block)
+		if err != nil {
+			return err
+		}
+
 		hashProofOfStake, err :=
-			b.checkTxProofOfStake(tx, timeSource, block.MsgBlock().Header.Bits, block.MsgBlock().Header.Timestamp)
+			b.checkTxProofOfStake(tx, inputs, timeSource, block.MsgBlock().Header.Bits, block.MsgBlock().Header.Timestamp)
 		if err != nil {
 			return err
 		}

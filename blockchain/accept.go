@@ -60,17 +60,6 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 		return false, err
 	}
 
-	/* todo ppc
-	// Prune block nodes which are no longer needed before creating
-	// a new node.
-	if !dryRun {
-		err = b.pruneBlockNodes()
-		if err != nil {
-			return err
-		}
-	}
-	*/
-
 	// Insert the block into the database if it's not already there.  Even
 	// though it is possible the block will ultimately fail to connect, it
 	// has already passed all proof-of-work and validity tests which means

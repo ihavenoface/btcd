@@ -88,6 +88,7 @@ func ShouldHaveSerializedBlockHeight(header *wire.BlockHeader) bool {
 // This function only differs from IsCoinBase in that it works with a raw wire
 // transaction as opposed to a higher level util transaction.
 func IsCoinBaseTx(msgTx *wire.MsgTx) bool {
+	// todo ppc possibly update
 	// A coin base must only have one transaction input.
 	if len(msgTx.TxIn) != 1 {
 		return false
@@ -744,7 +745,7 @@ func (b *BlockChain) checkBlockHeaderContext(chainParams *chaincfg.Params, heade
 	// todo ppc verify
 	if header.Version < 2 && IsProtocolV06(b.chainParams, prevNode) ||
 		header.Version < 4 && IsProtocolV12(b.chainParams, prevNode) {
-		str := fmt.Sprintf("bad block version=%s at height %d", header.Version, blockHeight)
+		str := fmt.Sprintf("bad block version=%d at height %d", header.Version, blockHeight)
 		return ruleError(ErrInvalidHeader, str)
 	}
 
