@@ -198,13 +198,12 @@ func calcTrust(bits uint32, proofOfStake bool) *big.Int {
 }
 
 // calcMintAndMoneySupply TODO(?) golint
-func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Block, prevHash *chainhash.Hash) error {
+func (b *BlockChain) calcMintAndMoneySupply(block *btcutil.Block, prevHash *chainhash.Hash) error {
 
 	nFees := int64(0)
 	nValueIn := int64(0)
 	nValueOut := int64(0)
 
-	// txStore, err := b.fetchInputTransactions(node, block)
 	utxoView := NewUtxoViewpoint()
 	err := utxoView.fetchInputUtxos(b.db, block)
 	if err != nil {
@@ -224,15 +223,11 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 		} else {
 			nTxValueIn := int64(0)
 			for _, txIn := range tx.MsgTx().TxIn {
-				/*
-					txInHash := &txIn.PreviousOutPoint.Hash
-					originTx, _ := txStore[*txInHash]
-					originTxIndex := txIn.PreviousOutPoint.Index
-					originTxSatoshi := originTx.Tx.MsgTx().TxOut[originTxIndex].Value
-					nTxValueIn += originTxSatoshi
-				*/
-				// todo ppc error out when not found
 				originTx := utxoView.LookupEntry(txIn.PreviousOutPoint)
+				if originTx == nil {
+					err = fmt.Errorf("calcMintAndMoneySupply(): failed to find outpoint for %s", txIn.PreviousOutPoint.Hash)
+					return err
+				}
 				nTxValueIn += originTx.Amount()
 			}
 			nValueIn += nTxValueIn
@@ -248,7 +243,7 @@ func (b *BlockChain) calcMintAndMoneySupply(node *blockNode, block *btcutil.Bloc
 	// ppc: track money supply and mint amount info
 	block.Meta().Mint = nValueOut - nValueIn + nFees
 	var prevNode *blockNode
-	prevNode = b.index.LookupNode(prevHash) // todo ppc check for genesis / nil
+	prevNode = b.index.LookupNode(prevHash)
 	if prevNode == nil {
 		return err
 	}
@@ -367,7 +362,6 @@ func PPCGetProofOfStakeReward(nCoinAge int64) btcutil.Amount {
 
 // ppc: miner's coin stake is rewarded based on coin age spent (coin-days)
 func getProofOfStakeReward(chainParams *chaincfg.Params, nTime int64, nCoinAge int64, moneySupply int64) int64 {
-	// todo ppc IsProtocolV09
 	nRewardCoinYear := Cent // creation amount per coin-year
 	nSubsidy := nCoinAge * 33 / (365*33 + 8) * nRewardCoinYear
 

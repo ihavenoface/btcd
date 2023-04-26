@@ -1245,16 +1245,15 @@ func (b *BlockChain) initChainState() error {
 			node := new(blockNode)
 			// todo ppc check sanity, placement.
 			//   obviously still experimental to do it here, rather than later
-			metaBuf, err := getBlkMeta(dbTx, header.BlockHash())
+			metaBuf, err := GetBlkMeta(dbTx, header.BlockHash())
 			if err != nil {
 				return err
 			}
-			tempBlock := new(btcutil.Block)
-			err = tempBlock.MetaFromBytes(metaBuf)
+			meta, err := btcutil.MetaFromBytes(metaBuf)
 			if err != nil {
 				return err
 			}
-			initBlockNodePPC(node, header, parent, tempBlock.Meta())
+			initBlockNodePPC(node, header, parent, meta)
 			node.status = status
 			b.index.addNode(node)
 
@@ -1384,24 +1383,16 @@ func dbFetchBlockByNode(dbTx database.Tx, node *blockNode) (*btcutil.Block, erro
 	block.SetHeight(node.height)
 
 	// todo ppc
-	metaBuf, err := getBlkMeta(dbTx, block.MsgBlock().BlockHash())
+	metaBuf, err := GetBlkMeta(dbTx, block.MsgBlock().BlockHash())
+	if err != nil {
+		return nil, err
+	}
 	err = block.MetaFromBytes(metaBuf)
 	if err != nil {
 		return nil, err
 	}
 
 	return block, nil
-}
-
-// todo ppc (re)move
-func MetaToBytes(meta *wire.Meta) ([]byte, error) {
-	var w bytes.Buffer
-	err := meta.Serialize(&w)
-	if err != nil {
-		return nil, err
-	}
-	serializedMeta := w.Bytes()
-	return serializedMeta, nil
 }
 
 // dbStoreBlockNode stores the block header and validation status to the block
@@ -1419,15 +1410,17 @@ func dbStoreBlockNode(dbTx database.Tx, node *blockNode) error {
 		return err
 	}
 	value := w.Bytes()
-	// todo ppc probably move
-	sMeta, err := MetaToBytes(node.meta)
-	if err != nil {
-		return err
-	}
-	err = setBlkMeta(dbTx, &node.hash, sMeta)
-	if err != nil {
-		return err
-	}
+	// todo ppc probably (re)move
+	/*
+		sMeta, err := btcutil.MetaToBytes(node.meta)
+		if err != nil {
+			return err
+		}
+		err = setBlkMeta(dbTx, &node.hash, sMeta)
+		if err != nil {
+			return err
+		}
+	*/
 	// Write block header data to block index bucket.
 	blockIndexBucket := dbTx.Metadata().Bucket(blockIndexBucketName)
 	key := blockIndexKey(&node.hash, uint32(node.height))

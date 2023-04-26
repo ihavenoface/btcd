@@ -373,6 +373,7 @@ func (b *BlockChain) calcSequenceLock(node *blockNode, tx *btcutil.Tx, utxoView 
 		// Obtain the latest BIP9 version bits state for the
 		// CSV-package soft-fork deployment. The adherence of sequence
 		// locks depends on the current soft-fork state.
+		// todo ppc
 		csvState, err := b.deploymentState(node.parent, chaincfg.DeploymentCSV)
 		if err != nil {
 			return nil, err
@@ -569,8 +570,8 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 	//log.Debugf("Block %v trust = %v", node.height, node.workSum)
 
 	// ppcoin: calculate block mint and money supply
-	// todo ppc, probably incorrect
-	err := b.calcMintAndMoneySupply(node, block, prevHash)
+	// todo ppc, works, but re-echeck placement
+	err := b.calcMintAndMoneySupply(block, prevHash)
 	if err != nil {
 		return err
 	}
@@ -622,8 +623,8 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 			return err
 		}
 
-		// todo ppc probably (re)move
-		sMeta, err := MetaToBytes(block.Meta())
+		/* todo ppc probably (re)move
+		sMeta, err := btcutil.MetaToBytes(block.Meta())
 		if err != nil {
 			return err
 		}
@@ -631,6 +632,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 		if err != nil {
 			return err
 		}
+		*/
 		// Update the utxo set using the state of the utxo view.  This
 		// entails removing all of the utxos spent and adding the new
 		// ones created by the block.

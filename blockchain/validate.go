@@ -88,9 +88,8 @@ func ShouldHaveSerializedBlockHeight(header *wire.BlockHeader) bool {
 // This function only differs from IsCoinBase in that it works with a raw wire
 // transaction as opposed to a higher level util transaction.
 func IsCoinBaseTx(msgTx *wire.MsgTx) bool {
-	// todo ppc possibly update
 	// A coin base must only have one transaction input.
-	if len(msgTx.TxIn) != 1 {
+	if len(msgTx.TxIn) != 1 || len(msgTx.TxOut) < 1 {
 		return false
 	}
 

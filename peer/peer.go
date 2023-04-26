@@ -29,7 +29,7 @@ import (
 
 const (
 	// MaxProtocolVersion is the max protocol version the peer supports.
-	MaxProtocolVersion = wire.AddrV2Version
+	MaxProtocolVersion = 70017
 
 	// DefaultTrickleInterval is the min time between attempts to send an
 	// inv message to a peer.

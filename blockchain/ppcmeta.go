@@ -5,6 +5,7 @@
 package blockchain
 
 import (
+	"fmt"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/database"
 )
@@ -20,12 +21,17 @@ func hashMetaToKey(hash *chainhash.Hash) []byte {
 	return key
 }
 
-func getBlkMeta(dbTx database.Tx, hash chainhash.Hash) (rbuf []byte, err error) {
+func GetBlkMeta(dbTx database.Tx, hash chainhash.Hash) (rbuf []byte, err error) {
 	key := hashMetaToKey(&hash)
 	bucket := dbTx.Metadata().Bucket(blockMetaBucketName)
 	rbuf = bucket.Get(key)
 	if rbuf == nil {
-		log.Tracef("failed to find meta for %v", hash)
+		// todo ppc re-check error creation
+		return nil, database.Error{
+			ErrorCode: database.ErrCorruption,
+			Description: fmt.Sprintf("failed to find meta for %v ",
+				hash),
+		}
 	}
 	return
 }
