@@ -444,66 +444,68 @@ func (b *BlockChain) getKernelStakeModifierV05(prevNode *blockNode, hashBlockFro
 // The stake modifier used to hash for a stake kernel is chosen as the stake
 // modifier about a selection interval later than the coin generating the kernel
 func (b *BlockChain) getKernelStakeModifier03(
-	hashBlockFrom *chainhash.Hash, timeSource MedianTimeSource, fPrintProofOfStake bool) (
+	prevNode *blockNode, hashBlockFrom *chainhash.Hash, timeSource MedianTimeSource, fPrintProofOfStake bool) (
 	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
 	err error) {
 
 	// defer timeTrack(now(), fmt.Sprintf("getKernelStakeModifier(%v)", hashBlockFrom))
 
-	//log.Debugf("getKernelStakeModifier : blockFrom = %v", hashBlockFrom)
-
 	nStakeModifier = 0
-	blockFrom := b.index.LookupNode(hashBlockFrom)
-	if blockFrom == nil {
+	pindexFrom := b.index.LookupNode(hashBlockFrom)
+	if pindexFrom == nil {
 		err = fmt.Errorf("getKernelStakeModifier() : block not found (%v)", hashBlockFrom)
 		return
 	}
-	blockFromHeight, fetchErr := b.BlockHeightByHash(hashBlockFrom)
-	if fetchErr != nil {
-		err = fmt.Errorf("getKernelStakeModifier() : block height not found (%v)", fetchErr)
+
+	nStakeModifierHeight = pindexFrom.height
+	nStakeModifierTime = pindexFrom.Header().Timestamp.Unix()
+	nStakeModifierSelectionInterval := getStakeModifierSelectionInterval(b.chainParams)
+
+	nDepth := prevNode.height - (pindexFrom.height - 1)
+	tmpChain := make([]*blockNode, 0, nDepth)
+
+	it := prevNode
+	for i := int32(1); i <= nDepth && it != pindexFrom; i++ {
+		tmpChain = append(tmpChain, it)
+		it = it.parent
+	}
+
+	// reverse it
+	for i, j := 0, len(tmpChain)-1; i < j; i, j = i+1, j-1 {
+		tmpChain[i], tmpChain[j] = tmpChain[j], tmpChain[i]
+	}
+
+	if it != pindexFrom {
+		err = fmt.Errorf("getKernelStakeModifier() : failed to create temporary chain from prevNode to pindexFrom")
 		return
 	}
-	nStakeModifierHeight = blockFromHeight
-	blockFromTimestamp := blockFrom.Header().Timestamp.Unix()
-	nStakeModifierTime = blockFromTimestamp
-	nStakeModifierSelectionInterval := getStakeModifierSelectionInterval(b.chainParams)
-	block := blockFrom.Header()
-	blockHeight := blockFromHeight
-	meta := blockFrom.meta
-	var blockHash *chainhash.Hash
-	// loop to find the stake modifier later by a selection interval
-	for nStakeModifierTime < (blockFromTimestamp + nStakeModifierSelectionInterval) {
-		if blockHeight >= b.bestChain.height() { // reached best block; may happen if node is behind on block chain
-			blockTimestamp := block.Timestamp.Unix()
-			if fPrintProofOfStake || (blockTimestamp+b.chainParams.StakeMinAge-nStakeModifierSelectionInterval > timeSource.AdjustedTime().Unix()) {
+	n := 0
+
+	// todo ppc verify this works properly
+	pindex := pindexFrom
+	for nStakeModifierTime < (pindexFrom.Header().Timestamp.Unix() + nStakeModifierSelectionInterval) {
+		oldPindex := pindex
+		if len(tmpChain) != 0 && pindex.height >= tmpChain[0].height-1 {
+			pindex = tmpChain[n]
+			n++
+		} else {
+			pindex = pindex.parent
+		}
+		if n > len(tmpChain) || pindex == nil {
+			if fPrintProofOfStake || (oldPindex.Header().Timestamp.Unix()+b.chainParams.StakeMinAge-nStakeModifierSelectionInterval > timeSource.AdjustedTime().Unix()) {
 				err = fmt.Errorf("GetKernelStakeModifier() : reached best block %v at height %v from block %v",
-					blockHash, blockHeight, hashBlockFrom)
+					oldPindex.hash, oldPindex.height, hashBlockFrom)
+				return
+			} else {
 				return
 			}
-			return
 		}
-		// todo this can be dumbed down
-		blockHash, err = b.BlockHashByHeight(blockHeight + 1)
-		if err != nil {
-			return
-		}
-		block, err = b.HeaderByHash(blockHash)
-		if err != nil {
-			return
-		}
-		// todo ppc possibly read meta from disk
-		node := b.index.LookupNode(blockHash)
-		if node == nil {
-			return
-		}
-		meta = node.meta
-		blockHeight++
-		if isGeneratedStakeModifier(meta) {
-			nStakeModifierHeight = blockHeight
-			nStakeModifierTime = block.Timestamp.Unix()
+		if isGeneratedStakeModifier(pindex.meta) {
+			nStakeModifierHeight = pindex.height
+			nStakeModifierTime = pindex.Header().Timestamp.Unix()
 		}
 	}
-	nStakeModifier = meta.StakeModifier
+	nStakeModifier = pindex.meta.StakeModifier
 	return
 }
 
@@ -514,7 +516,7 @@ func (b *BlockChain) getKernelStakeModifier(
 	if IsProtocolV05(b.chainParams, nTimeTx) {
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifierV05(prevNode, hashBlockFrom, nTimeTx, fPrintProofOfStake)
 	} else {
-		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifier03(hashBlockFrom, timeSource, fPrintProofOfStake)
+		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifier03(prevNode, hashBlockFrom, timeSource, fPrintProofOfStake)
 	}
 	return
 }
