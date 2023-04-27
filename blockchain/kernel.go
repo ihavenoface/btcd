@@ -275,7 +275,7 @@ func (b *BlockChain) computeNextStakeModifier(pindexCurrent *btcutil.Block) (
 	for pindex != nil && (pindex.timestamp >= nSelectionIntervalStart) {
 		vSortedByTimestamp = append(vSortedByTimestamp,
 			blockTimeHash{pindex.timestamp, &pindex.hash})
-		if pindex.parent == nil {
+		if pindex.parent != nil {
 			pindex = pindex.parent
 		} else {
 			break
@@ -402,72 +402,22 @@ func (b *BlockChain) addToBlockIndex(block *btcutil.Block) (err error) {
 }
 
 //CBlockIndex* pindexPrev, unsigned int nTimeTx, uint64_t& nStakeModifier, int& nStakeModifierHeight, int64_t& nStakeModifierTime, bool fPrintProofOfStake
-func (b *BlockChain) getKernelStakeModifierV05(hashBlockFrom *chainhash.Hash, nTimeTx int64, fPrintProofOfStake bool) (
+func (b *BlockChain) getKernelStakeModifierV05(prevNode *blockNode, hashBlockFrom *chainhash.Hash, nTimeTx int64, fPrintProofOfStake bool) (
 	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
 	err error) {
-	/*
-	   const Consensus::Params& params = Params().GetConsensus();
-	   const CBlockIndex* pindex = pindexPrev;
-	   nStakeModifierHeight = pindex->nHeight;
-	   nStakeModifierTime = pindex->GetBlockTime();
-	   int64_t nStakeModifierSelectionInterval = GetStakeModifierSelectionInterval();
 
-	   if (nStakeModifierTime + params.nStakeMinAge - nStakeModifierSelectionInterval <= (int64_t) nTimeTx)
-	   {
-	       // Best block is still more than
-	       // (nStakeMinAge minus a selection interval) older than kernel timestamp
-	       if (fPrintProofOfStake)
-	           return error("GetKernelStakeModifier() : best block %s at height %d too old for stake",
-	               pindex->GetBlockHash().ToString(), pindex->nHeight);
-	       else
-	           return false;
-	   }
-	   // loop to find the stake modifier earlier by
-	   // (nStakeMinAge minus a selection interval)
-	   while (nStakeModifierTime + params.nStakeMinAge - nStakeModifierSelectionInterval >(int64_t) nTimeTx)
-	   {
-	       if (!pindex->pprev)
-	       {   // reached genesis block; should not happen
-	           return error("GetKernelStakeModifier() : reached genesis block");
-	       }
-	       pindex = pindex->pprev;
-	       if (pindex->GeneratedStakeModifier())
-	       {
-	           nStakeModifierHeight = pindex->nHeight;
-	           nStakeModifierTime = pindex->GetBlockTime();
-	       }
-	   }
-	   nStakeModifier = pindex->nStakeModifier;
-	   return true;
-	*/
+	pindex := prevNode
 	nStakeModifier = 0
-	blockFrom := b.bestChain.Tip() // todo ppc check if this makes sense
-	blockFromHeight := blockFrom.height
-	// todo ppc
-	/*if blockFrom == nil {
-		err = fmt.Errorf("getKernelStakeModifier() : block not found (%v)", hashBlockFrom)
-		return
-	}
-	blockFromHeight, fetchErr := b.BlockHeightByHash(hashBlockFrom)
-	if fetchErr != nil {
-		err = fmt.Errorf("getKernelStakeModifier() : block height not found (%v)", fetchErr)
-		return
-	}*/
-	nStakeModifierHeight = blockFromHeight
-	nStakeModifierTime = blockFrom.Header().Timestamp.Unix()
+	nStakeModifierHeight = pindex.height
+	nStakeModifierTime = pindex.Header().Timestamp.Unix()
 	nStakeModifierSelectionInterval := getStakeModifierSelectionInterval(b.chainParams)
 
-	block := blockFrom.Header()
-	blockHeight := blockFromHeight
-	meta := blockFrom.meta
-
-	var blockHash *chainhash.Hash
 	if (nStakeModifierTime + b.chainParams.StakeMinAge - nStakeModifierSelectionInterval) <= nTimeTx {
 		// Best block is still more than
 		// (nStakeMinAge minus a selection interval) older than kernel timestamp
 		if fPrintProofOfStake {
 			err = fmt.Errorf("GetKernelStakeModifier() : best block %v at height %v too old for stake",
-				hashBlockFrom, blockFromHeight)
+				hashBlockFrom, pindex.height)
 			return
 		} else {
 			return
@@ -477,29 +427,17 @@ func (b *BlockChain) getKernelStakeModifierV05(hashBlockFrom *chainhash.Hash, nT
 	// loop to find the stake modifier earlier by
 	// (nStakeMinAge minus a selection interval)
 	for (nStakeModifierTime + b.chainParams.StakeMinAge - nStakeModifierSelectionInterval) > nTimeTx {
-		// todo ppc genesis test
-		// todo this can be dumbed down
-		blockHash, err = b.BlockHashByHeight(blockHeight)
-		if err != nil {
+		if pindex.parent == nil {
+			err = fmt.Errorf("getKernelStakeModifier() : reached genesis block")
 			return
 		}
-		block, err = b.HeaderByHash(blockHash)
-		if err != nil {
-			return
-		}
-		// todo ppc possibly read meta from disk
-		node := b.index.LookupNode(blockHash)
-		if node == nil {
-			return
-		}
-		meta = node.meta
-		blockHeight--
-		if isGeneratedStakeModifier(meta) {
-			nStakeModifierHeight = node.height
-			nStakeModifierTime = block.Timestamp.Unix()
+		pindex = pindex.parent
+		if isGeneratedStakeModifier(pindex.meta) {
+			nStakeModifierHeight = pindex.height
+			nStakeModifierTime = pindex.timestamp
 		}
 	}
-	nStakeModifier = meta.StakeModifier
+	nStakeModifier = pindex.meta.StakeModifier
 	return
 }
 
@@ -570,11 +508,11 @@ func (b *BlockChain) getKernelStakeModifier03(
 }
 
 func (b *BlockChain) getKernelStakeModifier(
-	hashBlockFrom *chainhash.Hash, timeSource MedianTimeSource, nTimeTx int64, fPrintProofOfStake bool) (
+	prevNode *blockNode, hashBlockFrom *chainhash.Hash, timeSource MedianTimeSource, nTimeTx int64, fPrintProofOfStake bool) (
 	nStakeModifier uint64, nStakeModifierHeight int32, nStakeModifierTime int64,
 	err error) {
 	if IsProtocolV05(b.chainParams, nTimeTx) {
-		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifierV05(hashBlockFrom, nTimeTx, fPrintProofOfStake)
+		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifierV05(prevNode, hashBlockFrom, nTimeTx, fPrintProofOfStake)
 	} else {
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err = b.getKernelStakeModifier03(hashBlockFrom, timeSource, fPrintProofOfStake)
 	}
@@ -605,7 +543,7 @@ func (b *BlockChain) getKernelStakeModifier(
 //   a proof-of-work situation.
 //
 func (b *BlockChain) checkStakeKernelHash(
-	nBits uint32, blockFrom *btcutil.Block, nTxPrevOffset uint32,
+	prevNode *blockNode, nBits uint32, blockFrom *btcutil.Block, nTxPrevOffset uint32,
 	txPrev *btcutil.Tx, prevout *wire.OutPoint, nTimeTx int64,
 	timeSource MedianTimeSource, fPrintProofOfStake bool) (
 	hashProofOfStake *chainhash.Hash, success bool, err error) {
@@ -674,7 +612,7 @@ func (b *BlockChain) checkStakeKernelHash(
 		blockFromHash = blockFrom.Hash()
 		// todo ppc
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err =
-			b.getKernelStakeModifier(blockFromHash, timeSource, nTimeTx, fPrintProofOfStake)
+			b.getKernelStakeModifier(prevNode, blockFromHash, timeSource, nTimeTx, fPrintProofOfStake)
 		if err != nil {
 			return
 		}
@@ -786,15 +724,12 @@ func (b *BlockChain) checkStakeKernelHash(
 }
 
 // Check kernel hash target and coinstake signature
-func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, timeSource MedianTimeSource, nBits uint32, blockTime time.Time) (
+func (b *BlockChain) checkTxProofOfStake(prevNode *blockNode, tx *btcutil.Tx, inputs *UtxoViewpoint, timeSource MedianTimeSource, nBits uint32, blockTime time.Time) (
 	hashProofOfStake *chainhash.Hash, err error) {
 	// todo ppc (important): re-check when exactly the input tx needs to be marked as spent
 	//   right now i'm not sure if the rest of the system picks up on the coinbase usage at all
 	//   this shouldn't happen here, but only after the block has been accepted
 	//   probably needs view.connectTransaction()
-
-	// b.chainLock.RLock()
-	// defer b.chainLock.RUnlock()
 
 	// defer timeTrack(now(), fmt.Sprintf("CheckProofOfStake(%v)", slice(tx.Hash())[0]))
 
@@ -809,18 +744,12 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, 
 	txin := msgTx.TxIn[0]
 
 	// First try finding the previous transaction in database
-	// todo ppc possibly assign
-	// var prevBlockHeight int64
-
 	txPrevData := inputs.LookupEntry(txin.PreviousOutPoint)
-	if txPrevData == nil { // todo ppc does this work?
+	if txPrevData == nil {
 		//return tx.DoS(1, error("CheckProofOfStake() : INFO: read txPrev failed"))  // previous transaction not in main chain, may occur during initial download
-		// todo ppc check if we're generating the error properly
 		err = fmt.Errorf("CheckProofOfStake() : INFO: read txPrevData failed")
 		return
 	}
-	// todo ppc possibly assign
-	// prevBlockHeight = txPrevData.BlockHeight
 
 	// Verify signature
 	errVerif := b.verifySignature(inputs, txin, tx, 0, true, 0)
@@ -830,37 +759,14 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, 
 		return
 	}
 
-	/* todo ppc maybe use this?
-	prevHash := &block.MsgBlock().Header.PrevBlock
-	prevHeader, err := dbFetchHeaderByHash(dbTx, prevHash)
-	*/
-
-
-	// Read block header
-	// The desired block height is in the main chain, so look it up
-	// from the main chain database.
-	/* todo ppc block should be in mem but we check anyway
-	prevBlockHash, err := b.db.FetchblockHashByHeight(txPrevData.BlockHeight)
-	if err != nil {
-		err = fmt.Errorf("CheckProofOfStake() : read block failed (%v)", err) // unable to read block of previous transaction
-		return
-	}
-	prevBlock, err := b.db.FetchBlockBySha(prevBlockHash)
-	if err != nil {
-		err = fmt.Errorf("CheckProofOfStake() : read block failed (%v)", err) // unable to read block of previous transaction
-		return
-	}
-	*/
-
-	// todo ppc this can be reworked using utxoview
-	prevBlock, err := b.BlockByHeight(txPrevData.BlockHeight())
+	blockFrom, err := b.BlockByHeight(txPrevData.BlockHeight())
 	if err != nil {
 		err = fmt.Errorf("CheckProofOfStake() : read block failed (%v)", err) // unable to read block of previous transaction
 		return
 	}
 
 	success := false
-	for _, txPrev := range prevBlock.Transactions() {
+	for _, txPrev := range blockFrom.Transactions() {
 
 		if txPrev.Hash().IsEqual(&txin.PreviousOutPoint.Hash) {
 			var nTimeTx int64
@@ -873,10 +779,10 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, 
 			//nTxPrevOffset uint := txindex.pos.nTxPos - txindex.pos.nBlockPos
 			//prevBlockTxLoc, _ := prevBlock.TxLoc() // TODO not optimal way
 			//nTxPrevOffset := uint32(prevBlockTxLoc[txPrev.Index()].TxStart)
-			nTxPrevOffset := prevBlock.Meta().TxOffsets[txPrev.Index()]
+			nTxPrevOffset := blockFrom.Meta().TxOffsets[txPrev.Index()]
 			//log.Infof("Comparing txOffset : %v - %v", nTxPrevOffset, nTxPrevOffsetMeta)
 			hashProofOfStake, success, err = b.checkStakeKernelHash(
-				nBits, prevBlock, nTxPrevOffset, txPrev, &txin.PreviousOutPoint,
+				prevNode, nBits, blockFrom, nTxPrevOffset, txPrev, &txin.PreviousOutPoint,
 				nTimeTx, timeSource, fDebug)
 			if err != nil {
 				return
@@ -897,7 +803,7 @@ func (b *BlockChain) checkTxProofOfStake(tx *btcutil.Tx, inputs *UtxoViewpoint, 
 }
 
 // checkBlockProofOfStake
-func (b *BlockChain) checkBlockProofOfStake(block *btcutil.Block, timeSource MedianTimeSource) error {
+func (b *BlockChain) checkBlockProofOfStake(prevNode *blockNode, block *btcutil.Block, timeSource MedianTimeSource) error {
 
 	if block.MsgBlock().IsProofOfStake() {
 
@@ -916,7 +822,7 @@ func (b *BlockChain) checkBlockProofOfStake(block *btcutil.Block, timeSource Med
 		}
 
 		hashProofOfStake, err :=
-			b.checkTxProofOfStake(tx, inputs, timeSource, block.MsgBlock().Header.Bits, block.MsgBlock().Header.Timestamp)
+			b.checkTxProofOfStake(prevNode, tx, inputs, timeSource, block.MsgBlock().Header.Bits, block.MsgBlock().Header.Timestamp)
 		if err != nil {
 			return err
 		}

@@ -48,7 +48,7 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 	// ppc: verify hash target and signature of coinstake tx
 	// TODO(mably) is it the best place to do that?
 	// TODO(mably) a timeSource param is needed to get the AdjustedTime
-	err = b.checkBlockProofOfStake(block, b.timeSource) // todo ppc (i'm just guessing here -> pass in timeSource that actually works)
+	err = b.checkBlockProofOfStake(prevNode, block, b.timeSource) // todo ppc (i'm just guessing here -> pass in timeSource that actually works)
 	if err != nil {
 		str := fmt.Sprintf("Proof of stake check failed for block %v : %v", block.Hash(), err)
 		return false, ruleError(ErrProofOfStakeCheck, str)
