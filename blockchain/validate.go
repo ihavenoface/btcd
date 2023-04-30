@@ -1102,7 +1102,8 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	// BIP0034 is not yet active.  This is a useful optimization because the
 	// BIP0030 check is expensive since it involves a ton of cache misses in
 	// the utxoset.
-	if !isBIP0030Node(node) && (node.height < b.chainParams.BIP0034Height) {
+	// todo ppc !isBIP0030Node(node) probably not relevant for us
+	if node.height < b.chainParams.BIP0034Height {
 		err := b.checkBIP0030(node, block, view)
 		if err != nil {
 			return err
