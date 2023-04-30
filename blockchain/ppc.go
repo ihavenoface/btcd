@@ -267,6 +267,7 @@ func (b *BlockChain) calcMintAndMoneySupply(block *btcutil.Block, prevHash *chai
 // introduced to help nodes establish a consistent view of the coin
 // age (trust score) of competing branches.
 func getCoinAgeTx(tx *btcutil.Tx, nTimeTx int64, utxoView *UtxoViewpoint, chainParams *chaincfg.Params) (uint64, error) {
+	// todo ppc missing IsProtocolV09() + isTrueCoinAge
 
 	bnCentSecond := big.NewInt(0) // coin age in the unit of cent-seconds
 
@@ -353,9 +354,11 @@ func (b *BlockChain) getCoinAgeBlock(node *blockNode, block *btcutil.Block) (uin
 // PPCGetProofOfStakeReward
 // Export requited, used my ppcwallet createCoinStake method
 func PPCGetProofOfStakeReward(nCoinAge int64) btcutil.Amount {
-	// todo ppc IsProtocolV09
 	nRewardCoinYear := Cent // creation amount per coin-year
 	nSubsidy := nCoinAge * 33 / (365*33 + 8) * nRewardCoinYear
+
+	// todo ppc this function isn't used currently. once it is, add IsProtocolV09
+
 	log.Debugf("getProofOfStakeReward(): create=%v nCoinAge=%v", nSubsidy, nCoinAge)
 	return btcutil.Amount(nSubsidy)
 }
@@ -365,7 +368,7 @@ func getProofOfStakeReward(chainParams *chaincfg.Params, nTime int64, nCoinAge i
 	nRewardCoinYear := Cent // creation amount per coin-year
 	nSubsidy := nCoinAge * 33 / (365*33 + 8) * nRewardCoinYear
 
-	if IsProtocolV09(chainParams, nTime) { // todo ppc verify
+	if IsProtocolV09(chainParams, nTime) {
 		// rfc18
 		// YearlyBlocks = ((365 * 33 + 8) / 33) * 1440 / 10
 		// some efforts not to lose precision
@@ -647,7 +650,6 @@ func CheckBlockSignature(msgBlock *wire.MsgBlock,
 	if err != nil {
 		return false
 	}
-	// todo ppc .Bytes() -> slice
 	return sig.Verify(hash[:], a.PubKey())
 }
 
@@ -737,18 +739,23 @@ func ppcCheckTransactionInputs(tx *btcutil.Tx, nTimeTx int64, utxoView *UtxoView
 	return nil
 }
 
-func ppcCheckTransactionInput(tx *btcutil.Tx, txIn *wire.TxIn, originUtxo *UtxoEntry) error {
+func ppcCheckTransactionInput(nTimeTx int64, originUtxo *UtxoEntry) error {
 	// https://github.com/ppcoin/ppcoin/blob/v0.4.0ppc/src/main.cpp#L1177
 	// ppc: check transaction timestamp
 	// if (txPrev.nTime > nTime)
 	// 	return DoS(100, error("ConnectInputs() : transaction timestamp earlier than input transaction"));
 	// todo ppc I added timestamp to utxoview, and it might not be accurate.
-	/*
-		if originUtxo.Timestamp().After(tx.MsgTx().Timestamp) {
-			str := "transaction timestamp earlier than input transaction"
-			return ruleError(ErrEarlierTimestamp, str)
-		}
-	*/
+	// todo ppc verify there's no checks missing
+	var nTimeOriginTx int64
+	if originUtxo.Timestamp().Unix() == 0 {
+		nTimeOriginTx = originUtxo.BlockTime().Unix()
+	} else {
+		nTimeOriginTx = originUtxo.Timestamp().Unix()
+	}
+	if nTimeOriginTx > nTimeTx {
+		str := "transaction timestamp earlier than input transaction"
+		return ruleError(ErrEarlierTimestamp, str)
+	}
 	return nil
 }
 

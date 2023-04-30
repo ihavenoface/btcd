@@ -612,7 +612,6 @@ func (b *BlockChain) checkStakeKernelHash(
 	if IsProtocolV03(b.chainParams, nTimeTx) { // v0.3 protocol
 		var blockFromHash *chainhash.Hash
 		blockFromHash = blockFrom.Hash()
-		// todo ppc
 		nStakeModifier, nStakeModifierHeight, nStakeModifierTime, err =
 			b.getKernelStakeModifier(prevNode, blockFromHash, timeSource, nTimeTx, fPrintProofOfStake)
 		if err != nil {
@@ -669,7 +668,6 @@ func (b *BlockChain) checkStakeKernelHash(
 
 	if fPrintProofOfStake {
 		if IsProtocolV03(b.chainParams, nTimeTx) {
-			// todo ppc update log v05
 			log.Debugf("checkStakeKernelHash() : using modifier %d at height=%d timestamp=%s for block from height=%d timestamp=%s",
 				nStakeModifier, nStakeModifierHeight,
 				dateTimeStrFormat(nStakeModifierTime), blockFrom.Height(),
@@ -677,7 +675,6 @@ func (b *BlockChain) checkStakeKernelHash(
 		}
 		var ver string
 		var modifier uint64
-		// todo ppc update log v05
 		if IsProtocolV03(b.chainParams, nTimeTx) {
 			ver = "0.3"
 			modifier = nStakeModifier
@@ -685,14 +682,15 @@ func (b *BlockChain) checkStakeKernelHash(
 			ver = "0.2"
 			modifier = uint64(nBits)
 		}
-		// todo ppc update log v05
+		if IsProtocolV05(b.chainParams, nTimeTx) {
+			ver = "0.5"
+		}
 		log.Debugf("checkStakeKernelHash() : check protocol=%s modifier=%d nBits=%d nTimeBlockFrom=%d nTxPrevOffset=%d nTimeTxPrev=%d nPrevout=%d nTimeTx=%d hashProof=%s",
 			ver, modifier, nBits, nTimeBlockFrom, nTxPrevOffset, nTimeTxPrev,
 			prevout.Index, nTimeTx, hashProofOfStake.String())
 	}
 
 	// Now check if proof-of-stake hash meets target protocol
-	// todo ppc re-enable
 	hashProofOfStakeInt := HashToBig(hashProofOfStake)
 	targetInt := new(big.Int).Mul(bnCoinDayWeight, bnTargetPerCoinDay)
 	//log.Debugf("checkStakeKernelHash() : hashInt = %v, targetInt = %v", hashProofOfStakeInt, targetInt)
@@ -716,6 +714,9 @@ func (b *BlockChain) checkStakeKernelHash(
 			ver = "0.2"
 			modifier = uint64(nBits)
 		}
+		if IsProtocolV05(b.chainParams, nTimeTx) {
+			ver = "0.5"
+		}
 		log.Debugf("checkStakeKernelHash() : pass protocol=%s modifier=%d nTimeBlockFrom=%d nTxPrevOffset=%d nTimeTxPrev=%d nPrevout=%d nTimeTx=%d hashProof=%s",
 			ver, modifier, nTimeBlockFrom, nTxPrevOffset, nTimeTxPrev,
 			prevout.Index, nTimeTx, hashProofOfStake.String())
@@ -732,6 +733,9 @@ func (b *BlockChain) checkTxProofOfStake(prevNode *blockNode, tx *btcutil.Tx, in
 	//   right now i'm not sure if the rest of the system picks up on the coinbase usage at all
 	//   this shouldn't happen here, but only after the block has been accepted
 	//   probably needs view.connectTransaction()
+	// todo ppc (important): i'm alternating between index and disk access at times and it's not entirely clear to me
+	//   just yet what the implications of it are in every possible edge case. do need a re-check with upstream to verify
+	//   this isn't producing total garbage
 
 	// defer timeTrack(now(), fmt.Sprintf("CheckProofOfStake(%v)", slice(tx.Hash())[0]))
 
@@ -771,6 +775,7 @@ func (b *BlockChain) checkTxProofOfStake(prevNode *blockNode, tx *btcutil.Tx, in
 	for _, txPrev := range blockFrom.Transactions() {
 
 		if txPrev.Hash().IsEqual(&txin.PreviousOutPoint.Hash) {
+			// todo ppc verify timestamp usage, not only here
 			var nTimeTx int64
 			if msgTx.Timestamp.Unix() == 0 {
 				nTimeTx = blockTime.Unix()
@@ -831,7 +836,6 @@ func (b *BlockChain) checkBlockProofOfStake(prevNode *blockNode, block *btcutil.
 
 		setProofOfStake(block.Meta(), true) // Important: flags
 		block.Meta().HashProofOfStake = *hashProofOfStake
-		// todo ppc check if Debugf makes sense
 		log.Debugf("Proof of stake for block %v = %v", blockHash, hashProofOfStake)
 
 	}
@@ -893,8 +897,7 @@ func (b *BlockChain) getStakeModifierChecksum(
 	if err != nil {
 		return
 	}
-	// todo ppc Bytes() -> slice
-	_, err = buf.Write(meta.HashProofOfStake[:]) // .CloneBytes()?
+	_, err = buf.Write(meta.HashProofOfStake[:])
 	bufSize += 32
 	if err != nil {
 		return
@@ -936,7 +939,6 @@ func IsSuperMajority(minVersion int32, pstart *blockNode, nRequired uint64, nToC
 }
 
 func HowSuperMajority(minVersion int32, pstart *blockNode, nRequired uint64, nToCheck uint64) uint64 {
-	// todo ppc check if mainnet (900) works as expected
 	numFound := uint64(0)
 	iterNode := pstart
 	for i := uint64(0); i < nToCheck && numFound < nRequired && iterNode != nil; {
@@ -968,7 +970,6 @@ func HowSuperMajority(minVersion int32, pstart *blockNode, nRequired uint64, nTo
 	return numFound
 }
 
-// todo ppc check if we can attach to blockchain like this
 func (b *BlockChain) verifySignature(utxoView *UtxoViewpoint, txIn *wire.TxIn, tx *btcutil.Tx,
 	nIn uint32, fValidatePayToScriptHash bool, nHashType int) error {
 

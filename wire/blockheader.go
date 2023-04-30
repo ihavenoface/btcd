@@ -130,6 +130,9 @@ func writeBlockHeader(w io.Writer, pver uint32, bh *BlockHeader, sFlag bool) err
 	sec := uint32(bh.Timestamp.Unix())
 	err := writeElements(w, bh.Version, &bh.PrevBlock, &bh.MerkleRoot,
 		sec, bh.Bits, bh.Nonce)
+	if err != nil {
+		return err
+	}
 	if sFlag {
 		// todo ppc this is experimental. remove sFlag and write meta flags elsewhere
 		err = writeElement(w, bh.Flags)

@@ -209,7 +209,7 @@ func IsProtocolV10(chainParams *chaincfg.Params, nTime int64) bool {
 }
 
 func IsProtocolV12(chainParams *chaincfg.Params, pindexPrev *blockNode) bool {
-	// todo ppc this is unused atm
+	// todo ppc couple of spots missing this check
 	var switchTime int64
 	if chainParams == &chaincfg.TestNet3Params {
 		switchTime = nProtocolV12TestSwitchTime

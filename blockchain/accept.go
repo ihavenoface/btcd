@@ -82,7 +82,7 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 	blockHeader := &block.MsgBlock().Header
 	newNode := newBlockNodePPC(blockHeader, prevNode, block.Meta())
 	// newNode := newBlockNode(blockHeader, prevNode)
-	// newNode.status = statusDataStored
+	newNode.status = statusDataStored
 
 	b.index.AddNode(newNode)
 	err = b.index.flushToDB()

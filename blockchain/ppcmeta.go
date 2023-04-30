@@ -13,6 +13,7 @@ import (
 var blockMetaSuffix = []byte{'b', 'm'}
 
 // todo ppc verify
+//  have a peek at blockchain/indexers/cfindex to optimise
 
 func hashMetaToKey(hash *chainhash.Hash) []byte {
 	key := make([]byte, len(hash)+len(blockMetaSuffix))

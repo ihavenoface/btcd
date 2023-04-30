@@ -902,9 +902,9 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 			// If we're fetching from a witness enabled peer
 			// post-fork, then ensure that we receive all the
 			// witness data in the blocks.
-			if sm.syncPeer.IsWitnessEnabled() {
+			/*if sm.syncPeer.IsWitnessEnabled() {
 				iv.Type = wire.InvTypeWitnessBlock
-			}
+			}*/
 
 			gdmsg.AddInvVect(iv)
 			numRequested++
