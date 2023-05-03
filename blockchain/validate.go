@@ -1181,10 +1181,8 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 	// todo ppc refactor
 	var totalFees int64
 	for _, tx := range transactions {
-		var nTimeTx int64
-		if tx.MsgTx().Timestamp.Unix() != 0 {
-			nTimeTx = tx.MsgTx().Timestamp.Unix()
-		} else {
+		nTimeTx := tx.MsgTx().Timestamp.Unix()
+		if nTimeTx == 0 {
 			nTimeTx = node.Header().Timestamp.Unix()
 		}
 		txFee, err := CheckTransactionInputs(tx, node.height, nTimeTx, view, block.Meta().MoneySupply,

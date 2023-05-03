@@ -746,16 +746,16 @@ func ppcCheckTransactionInput(nTimeTx int64, originUtxo *UtxoEntry) error {
 	// 	return DoS(100, error("ConnectInputs() : transaction timestamp earlier than input transaction"));
 	// todo ppc I added timestamp to utxoview, and it might not be accurate.
 	// todo ppc verify there's no checks missing
-	var nTimeOriginTx int64
-	if originUtxo.Timestamp().Unix() == 0 {
+	nTimeOriginTx := originUtxo.Timestamp().Unix()
+	if nTimeOriginTx == 0 {
 		nTimeOriginTx = originUtxo.BlockTime().Unix()
-	} else {
-		nTimeOriginTx = originUtxo.Timestamp().Unix()
 	}
+	/* todo ppc
 	if nTimeOriginTx > nTimeTx {
 		str := "transaction timestamp earlier than input transaction"
 		return ruleError(ErrEarlierTimestamp, str)
 	}
+	*/
 	return nil
 }
 

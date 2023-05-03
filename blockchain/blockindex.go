@@ -150,6 +150,7 @@ func (node *blockNode) Header() wire.BlockHeader {
 		Timestamp:  time.Unix(node.timestamp, 0),
 		Bits:       node.bits,
 		Nonce:      node.nonce,
+		Flags:      node.meta.Flags,
 	}
 }
 
