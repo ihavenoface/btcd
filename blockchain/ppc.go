@@ -92,6 +92,14 @@ func (b *BlockChain) getLastBlockIndex(pindex *blockNode, fProofOfStake bool) (b
 	return pindex
 }
 
+func (b *BlockChain) GetLastBlockIndex(hash *chainhash.Hash, fProofOfStake bool) chainhash.Hash {
+	pindex := b.index.LookupNode(hash)
+	for pindex != nil && pindex.parent != nil && pindex.isProofOfStake() != fProofOfStake {
+		pindex = pindex.parent
+	}
+	return pindex.hash
+}
+
 // calcNextRequiredDifficulty calculates the required difficulty for the block
 // after the passed previous block node based on the difficulty retarget rules.
 // This function differs from the exported CalcNextRequiredDifficulty in that

@@ -796,7 +796,10 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 			// is not a reference into the inventory slice which
 			// would prevent the entire slice from being eligible
 			// for GC as soon as it's sent.
-			continueHash := invMsg.InvList[invListLen-1].Hash
+			// peercoin: send latest proof-of-work block to allow the
+			// download node to accept as orphan (proof-of-stake
+			// block might be rejected by stake connection check)
+			continueHash := chain.GetLastBlockIndex(&invMsg.InvList[invListLen-1].Hash, false)
 			sp.continueHash = &continueHash
 		}
 		sp.QueueMessage(invMsg, nil)
