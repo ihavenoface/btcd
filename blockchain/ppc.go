@@ -93,11 +93,7 @@ func (b *BlockChain) getLastBlockIndex(pindex *blockNode, fProofOfStake bool) (b
 }
 
 func (b *BlockChain) GetLastBlockIndex(hash *chainhash.Hash, fProofOfStake bool) chainhash.Hash {
-	pindex := b.index.LookupNode(hash)
-	for pindex != nil && pindex.parent != nil && pindex.isProofOfStake() != fProofOfStake {
-		pindex = pindex.parent
-	}
-	return pindex.hash
+	return b.getLastBlockIndex(b.index.LookupNode(hash), fProofOfStake).hash
 }
 
 // calcNextRequiredDifficulty calculates the required difficulty for the block

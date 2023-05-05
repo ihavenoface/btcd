@@ -796,10 +796,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 			// is not a reference into the inventory slice which
 			// would prevent the entire slice from being eligible
 			// for GC as soon as it's sent.
-			// peercoin: send latest proof-of-work block to allow the
-			// download node to accept as orphan (proof-of-stake
-			// block might be rejected by stake connection check)
-			continueHash := chain.GetLastBlockIndex(&invMsg.InvList[invListLen-1].Hash, false)
+			continueHash := invMsg.InvList[invListLen-1].Hash
 			sp.continueHash = &continueHash
 		}
 		sp.QueueMessage(invMsg, nil)
@@ -1616,10 +1613,14 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *chainhash.Hash, doneChan cha
 	// would fit into a single message, send it a new inventory message
 	// to trigger it to issue another getblocks message for the next
 	// batch of inventory.
+	// peercoin: send latest proof-of-work block to allow the
+	// download node to accept as orphan (proof-of-stake
+	// block might be rejected by stake connection check)
 	if sendInv {
 		best := sp.server.chain.BestSnapshot()
+		bestHash := sp.server.chain.GetLastBlockIndex(&best.Hash, false)
 		invMsg := wire.NewMsgInvSizeHint(1)
-		iv := wire.NewInvVect(wire.InvTypeBlock, &best.Hash)
+		iv := wire.NewInvVect(wire.InvTypeBlock, &bestHash)
 		invMsg.AddInvVect(iv)
 		sp.QueueMessage(invMsg, doneChan)
 		sp.continueHash = nil
