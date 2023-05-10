@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/mempool"
 	peerpkg "github.com/btcsuite/btcd/peer"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcd/btcutil"
 )
 
 const (
@@ -265,11 +265,14 @@ func (sm *SyncManager) startSync() {
 	// Once the segwit soft-fork package has activated, we only
 	// want to sync from peers which are witness enabled to ensure
 	// that we fully validate all blockchain data.
+	/* todo ppc
 	segwitActive, err := sm.chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
 	if err != nil {
 		log.Errorf("Unable to query for segwit soft-fork state: %v", err)
 		return
 	}
+	*/
+	segwitActive := blockchain.IsBTC16BIPsEnabled(sm.chainParams, time.Now().Unix())
 
 	best := sm.chain.BestSnapshot()
 	var higherPeers, equalPeers []*peerpkg.Peer
@@ -357,6 +360,8 @@ func (sm *SyncManager) startSync() {
 		// and fully validate them.  Finally, regression test mode does
 		// not support the headers-first approach so do normal block
 		// downloads when in regression test mode.
+		// todo ppc disabled headers first because we don't support the encoding yet
+		// todo ppc support added for now but probably incomplete
 		if sm.nextCheckpoint != nil &&
 			best.Height < sm.nextCheckpoint.Height &&
 			sm.chainParams != &chaincfg.RegressionNetParams {
@@ -401,11 +406,14 @@ func (sm *SyncManager) isSyncCandidate(peer *peerpkg.Peer) bool {
 		// The peer is not a candidate for sync if it's not a full
 		// node. Additionally, if the segwit soft-fork package has
 		// activated, then the peer must also be upgraded.
+		/* todo ppc
 		segwitActive, err := sm.chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
 		if err != nil {
 			log.Errorf("Unable to query for segwit "+
 				"soft-fork state: %v", err)
 		}
+		*/
+		segwitActive := blockchain.IsBTC16BIPsEnabled(sm.chainParams, time.Now().Unix())
 		nodeServices := peer.Services()
 		if nodeServices&wire.SFNodeNetwork != wire.SFNodeNetwork ||
 			(segwitActive && !peer.IsWitnessEnabled()) {
@@ -1343,6 +1351,31 @@ out:
 					peerID = sm.syncPeer.ID()
 				}
 				msg.reply <- peerID
+
+			/* todo ppc
+			case getKernelStakeModifierMsg: // ppc:
+				stakeModifier, err := b.blockChain.GetKernelStakeModifier(
+					msg.hash, msg.timeSource)
+				msg.reply <- getKernelStakeModifierResponse{
+					StakeModifier: stakeModifier,
+					err:           err,
+				}
+
+			case ppcCalcNextReqDifficultyMsg: // ppc:
+				difficulty, err :=
+					b.blockChain.PPCCalcNextRequiredDifficulty(msg.proofOfStake)
+				msg.reply <- ppcCalcNextReqDifficultyResponse{
+					difficulty: difficulty,
+					err:        err,
+				}
+
+			case ppcGetLastProofOfWorkRewardMsg: // ppc:
+				subsidy := b.blockChain.PPCGetLastProofOfWorkReward()
+				msg.reply <- ppcGetLastProofOfWorkRewardResponse{
+					subsidy: subsidy,
+					err:     nil,
+				}
+			*/
 
 			case processBlockMsg:
 				_, isOrphan, err := sm.chain.ProcessBlock(

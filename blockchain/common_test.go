@@ -350,6 +350,7 @@ func (b *BlockChain) TstSetCoinbaseMaturity(maturity uint16) {
 func newFakeChain(params *chaincfg.Params) *BlockChain {
 	// Create a genesis block node and block index index populated with it
 	// for use when creating the fake chain below.
+	// todo ppc use newBlockNodePPC
 	node := newBlockNode(&params.GenesisBlock.Header, nil)
 	index := newBlockIndex(nil, params)
 	index.AddNode(node)

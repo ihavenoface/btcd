@@ -500,6 +500,7 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) *wire.MsgRej
 		// After soft-fork activation, only make outbound
 		// connection to peers if they flag that they're segwit
 		// enabled.
+		/* todo ppc
 		chain := sp.server.chain
 		segwitActive, err := chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
 		if err != nil {
@@ -507,6 +508,8 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) *wire.MsgRej
 				err)
 			return nil
 		}
+		*/
+		segwitActive := blockchain.IsBTC16BIPsEnabled(sp.server.chainParams, time.Now().Unix())
 
 		if segwitActive && !sp.IsWitnessEnabled() {
 			peerLog.Infof("Disconnecting non-segwit peer %v, isn't segwit "+
@@ -1610,10 +1613,14 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *chainhash.Hash, doneChan cha
 	// would fit into a single message, send it a new inventory message
 	// to trigger it to issue another getblocks message for the next
 	// batch of inventory.
+	// peercoin: send latest proof-of-work block to allow the
+	// download node to accept as orphan (proof-of-stake
+	// block might be rejected by stake connection check)
 	if sendInv {
 		best := sp.server.chain.BestSnapshot()
+		bestHash := sp.server.chain.GetLastBlockIndex(&best.Hash, false)
 		invMsg := wire.NewMsgInvSizeHint(1)
-		iv := wire.NewInvVect(wire.InvTypeBlock, &best.Hash)
+		iv := wire.NewInvVect(wire.InvTypeBlock, &bestHash)
 		invMsg.AddInvVect(iv)
 		sp.QueueMessage(invMsg, doneChan)
 		sp.continueHash = nil
@@ -2860,6 +2867,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 
 	// If no feeEstimator has been found, or if the one that has been found
 	// is behind somehow, create a new one and start over.
+	// todo ppc remove / mask fees
 	if s.feeEstimator == nil || s.feeEstimator.LastKnownHeight() != s.chain.BestSnapshot().Height {
 		s.feeEstimator = mempool.NewFeeEstimator(
 			mempool.DefaultEstimateFeeMaxRollback,
@@ -2875,7 +2883,7 @@ func newServer(listenAddrs, agentBlacklist, agentWhitelist []string,
 			MaxOrphanTxSize:      defaultMaxOrphanTxSize,
 			MaxSigOpCostPerTx:    blockchain.MaxBlockSigOpsCost / 4,
 			MinRelayTxFee:        cfg.minRelayTxFee,
-			MaxTxVersion:         2,
+			MaxTxVersion:         3,
 			RejectReplacement:    cfg.RejectReplacement,
 		},
 		ChainParams:    chainParams,

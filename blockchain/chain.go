@@ -373,6 +373,7 @@ func (b *BlockChain) calcSequenceLock(node *blockNode, tx *btcutil.Tx, utxoView 
 		// Obtain the latest BIP9 version bits state for the
 		// CSV-package soft-fork deployment. The adherence of sequence
 		// locks depends on the current soft-fork state.
+		// todo ppc
 		csvState, err := b.deploymentState(node.parent, chaincfg.DeploymentCSV)
 		if err != nil {
 			return nil, err
@@ -564,6 +565,17 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 			"that extends the main chain")
 	}
 
+	// peercoin
+	block.Meta().ChainTrust = *node.workSum
+	//log.Debugf("Block %v trust = %v", node.height, node.workSum)
+
+	// ppcoin: calculate block mint and money supply
+	// todo ppc, works, but re-echeck placement
+	err := b.calcMintAndMoneySupply(block, prevHash)
+	if err != nil {
+		return err
+	}
+
 	// Sanity check the correct number of stxos are provided.
 	if len(stxos) != countSpentOutputs(block) {
 		return AssertError("connectBlock called with inconsistent " +
@@ -580,7 +592,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 	}
 
 	// Write any block status changes to DB before updating best state.
-	err := b.index.flushToDB()
+	err = b.index.flushToDB()
 	if err != nil {
 		return err
 	}
@@ -611,6 +623,16 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block,
 			return err
 		}
 
+		/* todo ppc probably (re)move
+		sMeta, err := btcutil.MetaToBytes(block.Meta())
+		if err != nil {
+			return err
+		}
+		err = setBlkMeta(dbTx, block.Hash(), sMeta)
+		if err != nil {
+			return err
+		}
+		*/
 		// Update the utxo set using the state of the utxo view.  This
 		// entails removing all of the utxos spent and adding the new
 		// ones created by the block.
@@ -710,6 +732,7 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *btcutil.Block, view
 		newTotalTxns, prevNode.CalcPastMedianTime())
 
 	err = b.db.Update(func(dbTx database.Tx) error {
+		// todo ppc disconnect meta?
 		// Update best block state.
 		err := dbPutBestState(dbTx, state, node.workSum)
 		if err != nil {

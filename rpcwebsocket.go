@@ -22,12 +22,12 @@ import (
 
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/btcjson"
+	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/websocket"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -968,10 +968,12 @@ func blockDetails(block *btcutil.Block, txIndex int) *btcjson.BlockDetails {
 		return nil
 	}
 	return &btcjson.BlockDetails{
-		Height: block.Height(),
-		Hash:   block.Hash().String(),
-		Index:  txIndex,
-		Time:   block.MsgBlock().Header.Timestamp.Unix(),
+		Height:        block.Height(),
+		Hash:          block.Hash().String(),
+		Index:         txIndex,
+		Time:          block.MsgBlock().Header.Timestamp.Unix(),
+		Offset:        block.Meta().TxOffsets[txIndex],
+		StakeModifier: block.Meta().StakeModifier,
 	}
 }
 

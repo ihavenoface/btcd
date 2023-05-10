@@ -151,6 +151,7 @@ func (b *BlockChain) PastMedianTime(blockHeader *wire.BlockHeader) (time.Time, e
 			"previous node", blockHeader.BlockHash())
 	}
 
+	// todo ppc use newBlockNodePPC
 	blockNode := newBlockNode(blockHeader, prevNode)
 
 	return blockNode.CalcPastMedianTime(), nil

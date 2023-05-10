@@ -30,6 +30,7 @@ func chainedNodes(parent *blockNode, numNodes int) []*blockNode {
 		if tip != nil {
 			header.PrevBlock = tip.hash
 		}
+		// todo ppc use newBlockNodePPC
 		nodes[i] = newBlockNode(&header, tip)
 		tip = nodes[i]
 	}
